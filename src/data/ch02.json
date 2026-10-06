@@ -1,0 +1,207 @@
+{
+ "all_group_empty": {
+  "sql": "SELECT COUNT(*)\n  FROM Address\n GROUP BY ( )",
+  "pg": " Aggregate  (cost=1.11..1.12 rows=1 width=8) (actual rows=1 loops=1)\n   Group Key: ()\n   Buffers: shared hit=1\n   ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=0) (actual rows=9 loops=1)\n         Buffers: shared hit=1",
+  "my": "ERROR 1064 (42000) at line 1: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ')' at line 3",
+  "res": " count \n-------\n     9"
+ },
+ "all_nogroup": {
+  "sql": "SELECT COUNT(*)\n  FROM Address",
+  "pg": " Aggregate  (cost=1.11..1.12 rows=1 width=8) (actual rows=1 loops=1)\n   Buffers: shared hit=1\n   ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=0) (actual rows=9 loops=1)\n         Buffers: shared hit=1",
+  "my": "-> Count rows in Address  (actual time=0.315..0.315 rows=1 loops=1)",
+  "res": " count \n-------\n     9"
+ },
+ "and_ge": {
+  "sql": "SELECT name, address, age\n  FROM Address\n WHERE address = '東京都'\n   AND age >= 30",
+  "pg": " Seq Scan on address  (cost=0.00..1.14 rows=2 width=20) (actual rows=2 loops=1)\n   Filter: ((age >= 30) AND ((address)::text = '東京都'::text))\n   Rows Removed by Filter: 7\n   Buffers: shared hit=1",
+  "my": "-> Filter: ((Address.address = '東京都') and (Address.age >= 30))  (cost=1.15 rows=1) (actual time=0.0431..0.0465 rows=2 loops=1)\n    -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0339..0.0382 rows=9 loops=1)",
+  "res": " name | address | age \n------+---------+-----\n 小川 | 東京都  |  30\n 森   | 東京都  |  45"
+ },
+ "and_gt": {
+  "sql": "SELECT name, address, age\n  FROM Address\n WHERE address = '東京都'\n   AND age > 30",
+  "pg": " Seq Scan on address  (cost=0.00..1.14 rows=1 width=20) (actual rows=1 loops=1)\n   Filter: ((age > 30) AND ((address)::text = '東京都'::text))\n   Rows Removed by Filter: 8\n   Buffers: shared hit=1",
+  "my": "-> Filter: ((Address.address = '東京都') and (Address.age > 30))  (cost=1.15 rows=1) (actual time=0.0428..0.0461 rows=1 loops=1)\n    -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0342..0.0389 rows=9 loops=1)",
+  "res": " name | address | age \n------+---------+-----\n 森   | 東京都  |  45"
+ },
+ "case_order": {
+  "sql": "SELECT name, age,\n       CASE WHEN age >= 30 THEN '30歳以上'\n            WHEN age >= 40 THEN '40歳以上'\n            ELSE '30歳未満' END AS age_group\n  FROM Address",
+  "pg": " Seq Scan on address  (cost=0.00..1.14 rows=9 width=42) (actual rows=9 loops=1)\n   Buffers: shared hit=1",
+  "my": "-> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0347..0.039 rows=9 loops=1)",
+  "res": "  name  | age | age_group \n--------+-----+-----------\n 小川   |  30 | 30歳以上\n 前田   |  21 | 30歳未満\n 森     |  45 | 30歳以上\n 林     |  32 | 30歳以上\n 井上   |  55 | 30歳以上\n 佐々木 |  19 | 30歳未満\n 松本   |  20 | 30歳未満\n 佐藤   |  25 | 30歳未満\n 鈴木   |  32 | 30歳以上"
+ },
+ "del_col": {
+  "sql": "DELETE name FROM Address\n WHERE name = '佐々木'",
+  "pg": "ERROR:  syntax error at or near \"name\"\nLINE 1: ...ANALYZE, BUFFERS, TIMING OFF, SUMMARY OFF) DELETE name FROM ...\n                                                             ^",
+  "my": "ERROR 1109 (42S02) at line 2: Unknown table 'name' in MULTI DELETE",
+  "res": "ERROR:  syntax error at or near \"name\"\nLINE 1: DELETE name FROM Address\n               ^"
+ },
+ "dense_rank": {
+  "sql": "SELECT name, age,\n       DENSE_RANK() OVER(ORDER BY age DESC) AS dense_rnk\n  FROM Address",
+  "pg": " WindowAgg  (cost=1.23..1.39 rows=9 width=18) (actual rows=9 loops=1)\n   Buffers: shared hit=4\n   ->  Sort  (cost=1.23..1.26 rows=9 width=10) (actual rows=9 loops=1)\n         Sort Key: age DESC\n         Sort Method: quicksort  Memory: 25kB\n         Buffers: shared hit=4\n         ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=10) (actual rows=9 loops=1)\n               Buffers: shared hit=1",
+  "my": "-> Window aggregate: dense_rank() OVER (ORDER BY Address.age desc )   (actual time=0.0767..0.0787 rows=9 loops=1)\n    -> Sort: Address.age DESC  (cost=1.15 rows=9) (actual time=0.0656..0.0659 rows=9 loops=1)\n        -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0408..0.0471 rows=9 loops=1)",
+  "res": "  name  | age | dense_rnk \n--------+-----+-----------\n 井上   |  55 |         1\n 森     |  45 |         2\n 鈴木   |  32 |         3\n 林     |  32 |         3\n 小川   |  30 |         4\n 佐藤   |  25 |         5\n 前田   |  21 |         6\n 松本   |  20 |         7\n 佐々木 |  19 |         8"
+ },
+ "ex_dense_part": {
+  "sql": "SELECT name, sex, age,\n       DENSE_RANK() OVER(PARTITION BY sex\n                         ORDER BY age DESC) AS rnk\n  FROM Address",
+  "pg": " WindowAgg  (cost=1.23..1.41 rows=9 width=25) (actual rows=9 loops=1)\n   Buffers: shared hit=7\n   ->  Sort  (cost=1.23..1.26 rows=9 width=17) (actual rows=9 loops=1)\n         Sort Key: sex, age DESC\n         Sort Method: quicksort  Memory: 25kB\n         Buffers: shared hit=7\n         ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=17) (actual rows=9 loops=1)\n               Buffers: shared hit=1",
+  "my": "-> Window aggregate: dense_rank() OVER (PARTITION BY Address.sex ORDER BY Address.age desc )   (actual time=0.0457..0.0497 rows=9 loops=1)\n    -> Sort: Address.sex, Address.age DESC  (cost=1.15 rows=9) (actual time=0.04..0.0405 rows=9 loops=1)\n        -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.023..0.0264 rows=9 loops=1)",
+  "res": "  name  |  sex  | age | rnk \n--------+-------+-----+-----\n 井上   | 女    |  55 |   1\n 佐藤   | 女    |  25 |   2\n 前田   | 女    |  21 |   3\n 松本   | 女    |  20 |   4\n 佐々木 | 女    |  19 |   5\n 森     | 男    |  45 |   1\n 鈴木   | 男    |  32 |   2\n 林     | 男    |  32 |   2\n 小川   | 男    |  30 |   3"
+ },
+ "ex_rank_asc": {
+  "sql": "SELECT name, sex, age,\n       RANK() OVER(PARTITION BY sex\n                   ORDER BY age) AS rnk\n  FROM Address",
+  "pg": " WindowAgg  (cost=1.23..1.41 rows=9 width=25) (actual rows=9 loops=1)\n   Buffers: shared hit=7\n   ->  Sort  (cost=1.23..1.26 rows=9 width=17) (actual rows=9 loops=1)\n         Sort Key: sex, age\n         Sort Method: quicksort  Memory: 25kB\n         Buffers: shared hit=7\n         ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=17) (actual rows=9 loops=1)\n               Buffers: shared hit=1",
+  "my": "-> Window aggregate: rank() OVER (PARTITION BY Address.sex ORDER BY Address.age )   (actual time=0.0518..0.0561 rows=9 loops=1)\n    -> Sort: Address.sex, Address.age  (cost=1.15 rows=9) (actual time=0.0451..0.0456 rows=9 loops=1)\n        -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0268..0.0311 rows=9 loops=1)",
+  "res": "  name  |  sex  | age | rnk \n--------+-------+-----+-----\n 佐々木 | 女    |  19 |   1\n 松本   | 女    |  20 |   2\n 前田   | 女    |  21 |   3\n 佐藤   | 女    |  25 |   4\n 井上   | 女    |  55 |   5\n 小川   | 男    |  30 |   1\n 林     | 男    |  32 |   2\n 鈴木   | 男    |  32 |   2\n 森     | 男    |  45 |   4"
+ },
+ "ex_rank_nopart": {
+  "sql": "SELECT name, sex, age,\n       RANK() OVER(ORDER BY sex, age DESC) AS rnk\n  FROM Address",
+  "pg": " WindowAgg  (cost=1.23..1.41 rows=9 width=25) (actual rows=9 loops=1)\n   Buffers: shared hit=7\n   ->  Sort  (cost=1.23..1.26 rows=9 width=17) (actual rows=9 loops=1)\n         Sort Key: sex, age DESC\n         Sort Method: quicksort  Memory: 25kB\n         Buffers: shared hit=7\n         ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=17) (actual rows=9 loops=1)\n               Buffers: shared hit=1",
+  "my": "-> Window aggregate: rank() OVER (ORDER BY Address.sex,Address.age desc )   (actual time=0.0544..0.057 rows=9 loops=1)\n    -> Sort: Address.sex, Address.age DESC  (cost=1.15 rows=9) (actual time=0.0465..0.047 rows=9 loops=1)\n        -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0278..0.0321 rows=9 loops=1)",
+  "res": "  name  |  sex  | age | rnk \n--------+-------+-----+-----\n 井上   | 女    |  55 |   1\n 佐藤   | 女    |  25 |   2\n 前田   | 女    |  21 |   3\n 松本   | 女    |  20 |   4\n 佐々木 | 女    |  19 |   5\n 森     | 男    |  45 |   6\n 鈴木   | 男    |  32 |   7\n 林     | 男    |  32 |   7\n 小川   | 男    |  30 |   9"
+ },
+ "ex_rank_part": {
+  "sql": "SELECT name, sex, age,\n       RANK() OVER(PARTITION BY sex\n                   ORDER BY age DESC) AS rnk\n  FROM Address",
+  "pg": " WindowAgg  (cost=1.23..1.41 rows=9 width=25) (actual rows=9 loops=1)\n   Buffers: shared hit=7\n   ->  Sort  (cost=1.23..1.26 rows=9 width=17) (actual rows=9 loops=1)\n         Sort Key: sex, age DESC\n         Sort Method: quicksort  Memory: 25kB\n         Buffers: shared hit=7\n         ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=17) (actual rows=9 loops=1)\n               Buffers: shared hit=1",
+  "my": "-> Window aggregate: rank() OVER (PARTITION BY Address.sex ORDER BY Address.age desc )   (actual time=0.0709..0.0758 rows=9 loops=1)\n    -> Sort: Address.sex, Address.age DESC  (cost=1.15 rows=9) (actual time=0.0623..0.0628 rows=9 loops=1)\n        -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.038..0.043 rows=9 loops=1)",
+  "res": "  name  |  sex  | age | rnk \n--------+-------+-----+-----\n 井上   | 女    |  55 |   1\n 佐藤   | 女    |  25 |   2\n 前田   | 女    |  21 |   3\n 松本   | 女    |  20 |   4\n 佐々木 | 女    |  19 |   5\n 森     | 男    |  45 |   1\n 鈴木   | 男    |  32 |   2\n 林     | 男    |  32 |   2\n 小川   | 男    |  30 |   4"
+ },
+ "having_ok": {
+  "sql": "SELECT address, COUNT(*)\n  FROM Address\n GROUP BY address\nHAVING COUNT(*) = 1",
+  "pg": " HashAggregate  (cost=1.14..1.20 rows=1 width=18) (actual rows=2 loops=1)\n   Group Key: address\n   Filter: (count(*) = 1)\n   Batches: 1  Memory Usage: 24kB\n   Rows Removed by Filter: 3\n   Buffers: shared hit=1\n   ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=10) (actual rows=9 loops=1)\n         Buffers: shared hit=1",
+  "my": "-> Filter: (`count(0)` = 1)  (actual time=0.0457..0.0461 rows=2 loops=1)\n    -> Table scan on <temporary>  (actual time=0.043..0.0435 rows=5 loops=1)\n        -> Aggregate using temporary table  (actual time=0.0426..0.0426 rows=5 loops=1)\n            -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0215..0.0252 rows=9 loops=1)",
+  "res": " address  | count \n----------+-------\n 和歌山県 |     1\n 三重県   |     1"
+ },
+ "having_where": {
+  "sql": "SELECT address, COUNT(*)\n  FROM Address\n WHERE COUNT(*) = 1\n GROUP BY address",
+  "pg": "ERROR:  aggregate functions are not allowed in WHERE\nLINE 3:  WHERE COUNT(*) = 1\n               ^",
+  "my": "ERROR 1111 (HY000) at line 1: Invalid use of group function",
+  "res": "ERROR:  aggregate functions are not allowed in WHERE\nLINE 3:  WHERE COUNT(*) = 1\n               ^"
+ },
+ "in_const": {
+  "sql": "SELECT name\n  FROM Address\n WHERE name IN ('小川', '林', '武田', '斉藤', '上野', '広田')",
+  "pg": " Seq Scan on address  (cost=0.00..1.16 rows=6 width=6) (actual rows=2 loops=1)\n   Filter: ((name)::text = ANY ('{小川,林,武田,斉藤,上野,広田}'::text[]))\n   Rows Removed by Filter: 7\n   Buffers: shared hit=1",
+  "my": "-> Filter: (Address.`name` in ('小川','林','武田','斉藤','上野','広田'))  (cost=1.15 rows=6) (actual time=0.0509..0.0554 rows=2 loops=1)\n    -> Covering index scan on Address using PRIMARY  (cost=1.15 rows=9) (actual time=0.044..0.05 rows=9 loops=1)",
+  "res": " name \n------\n 小川\n 林"
+ },
+ "in_sub": {
+  "sql": "SELECT name\n  FROM Address\n WHERE name IN (SELECT name\n                  FROM Address2)",
+  "pg": " Hash Join  (cost=1.14..2.26 rows=6 width=6) (actual rows=2 loops=1)\n   Hash Cond: ((address.name)::text = (address2.name)::text)\n   Buffers: shared hit=2\n   ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=6) (actual rows=9 loops=1)\n         Buffers: shared hit=1\n   ->  Hash  (cost=1.06..1.06 rows=6 width=6) (actual rows=6 loops=1)\n         Buckets: 1024  Batches: 1  Memory Usage: 9kB\n         Buffers: shared hit=1\n         ->  Seq Scan on address2  (cost=0.00..1.06 rows=6 width=6) (actual rows=6 loops=1)\n               Buffers: shared hit=1",
+  "my": "-> Nested loop inner join  (cost=2.95 rows=6) (actual time=0.0527..0.0591 rows=2 loops=1)\n    -> Covering index scan on Address2 using PRIMARY  (cost=0.85 rows=6) (actual time=0.0328..0.0375 rows=6 loops=1)\n    -> Single-row covering index lookup on Address using PRIMARY (name=Address2.`name`)  (cost=0.267 rows=1) (actual time=0.00312..0.00313 rows=0.333 loops=6)",
+  "res": " name \n------\n 小川\n 林"
+ },
+ "null_empty": {
+  "sql": "SELECT name, phone_nbr\n  FROM Address\n WHERE phone_nbr = ''",
+  "pg": " Seq Scan on address  (cost=0.00..1.11 rows=1 width=20) (actual rows=0 loops=1)\n   Filter: ((phone_nbr)::text = ''::text)\n   Rows Removed by Filter: 9\n   Buffers: shared hit=1",
+  "my": "-> Filter: (Address.phone_nbr = '')  (cost=1.15 rows=1) (actual time=0.0458..0.0458 rows=0 loops=1)\n    -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0354..0.0405 rows=9 loops=1)",
+  "res": " name | phone_nbr \n------+-----------"
+ },
+ "null_eq": {
+  "sql": "SELECT name, phone_nbr\n  FROM Address\n WHERE phone_nbr = NULL",
+  "pg": " Result  (cost=0.00..0.00 rows=0 width=0) (actual rows=0 loops=1)\n   One-Time Filter: false",
+  "my": "-> Filter: (Address.phone_nbr = NULL)  (cost=1.15 rows=1) (actual time=0.059..0.059 rows=0 loops=1)\n    -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0471..0.0543 rows=9 loops=1)",
+  "res": " name | phone_nbr \n------+-----------"
+ },
+ "null_is": {
+  "sql": "SELECT name, phone_nbr\n  FROM Address\n WHERE phone_nbr IS NULL",
+  "pg": " Seq Scan on address  (cost=0.00..1.09 rows=2 width=20) (actual rows=2 loops=1)\n   Filter: (phone_nbr IS NULL)\n   Rows Removed by Filter: 7\n   Buffers: shared hit=1",
+  "my": "-> Filter: (Address.phone_nbr is null)  (cost=1.15 rows=1) (actual time=0.0475..0.0541 rows=2 loops=1)\n    -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.046..0.052 rows=9 loops=1)",
+  "res": " name | phone_nbr \n------+-----------\n 井上 | \n 松本 |"
+ },
+ "null_ne": {
+  "sql": "SELECT name, phone_nbr\n  FROM Address\n WHERE phone_nbr <> NULL",
+  "pg": " Result  (cost=0.00..0.00 rows=0 width=0) (actual rows=0 loops=1)\n   One-Time Filter: false",
+  "my": "-> Filter: (Address.phone_nbr <> NULL)  (cost=1.15 rows=8) (actual time=0.0323..0.0323 rows=0 loops=1)\n    -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0252..0.0292 rows=9 loops=1)",
+  "res": " name | phone_nbr \n------+-----------"
+ },
+ "or_ge": {
+  "sql": "SELECT name, address, age\n  FROM Address\n WHERE address = '東京都'\n    OR age >= 30",
+  "pg": " Seq Scan on address  (cost=0.00..1.14 rows=7 width=20) (actual rows=6 loops=1)\n   Filter: (((address)::text = '東京都'::text) OR (age >= 30))\n   Rows Removed by Filter: 3\n   Buffers: shared hit=1",
+  "my": "-> Filter: ((Address.address = '東京都') or (Address.age >= 30))  (cost=1.15 rows=3.67) (actual time=0.0494..0.0568 rows=6 loops=1)\n    -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0422..0.0478 rows=9 loops=1)",
+  "res": " name | address  | age \n------+----------+-----\n 小川 | 東京都   |  30\n 前田 | 東京都   |  21\n 森   | 東京都   |  45\n 林   | 福島県   |  32\n 井上 | 福島県   |  55\n 鈴木 | 和歌山県 |  32"
+ },
+ "order_age": {
+  "sql": "SELECT name, age\n  FROM Address\n ORDER BY age DESC",
+  "pg": " Sort  (cost=1.23..1.26 rows=9 width=10) (actual rows=9 loops=1)\n   Sort Key: age DESC\n   Sort Method: quicksort  Memory: 25kB\n   Buffers: shared hit=4\n   ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=10) (actual rows=9 loops=1)\n         Buffers: shared hit=1",
+  "my": "-> Sort: Address.age DESC  (cost=1.15 rows=9) (actual time=0.0559..0.0563 rows=9 loops=1)\n    -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0357..0.0409 rows=9 loops=1)",
+  "res": "  name  | age \n--------+-----\n 井上   |  55\n 森     |  45\n 鈴木   |  32\n 林     |  32\n 小川   |  30\n 佐藤   |  25\n 前田   |  21\n 松本   |  20\n 佐々木 |  19"
+ },
+ "order_none": {
+  "sql": "SELECT name, age\n  FROM Address",
+  "pg": " Seq Scan on address  (cost=0.00..1.09 rows=9 width=10) (actual rows=9 loops=1)\n   Buffers: shared hit=1",
+  "my": "-> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0341..0.0388 rows=9 loops=1)",
+  "res": "  name  | age \n--------+-----\n 小川   |  30\n 前田   |  21\n 森     |  45\n 林     |  32\n 井上   |  55\n 佐々木 |  19\n 松本   |  20\n 佐藤   |  25\n 鈴木   |  32",
+  "myres": "+-----------+-----+\n| name      | age |\n+-----------+-----+\n| 井上      |  55 |\n| 佐々木    |  19 |\n| 佐藤      |  25 |\n| 前田      |  21 |\n| 小川      |  30 |\n| 松本      |  20 |\n| 林        |  32 |\n| 森        |  45 |\n| 鈴木      |  32 |\n+-----------+-----+"
+ },
+ "rank": {
+  "sql": "SELECT name, age,\n       RANK() OVER(ORDER BY age DESC) AS rnk\n  FROM Address",
+  "pg": " WindowAgg  (cost=1.23..1.39 rows=9 width=18) (actual rows=9 loops=1)\n   Buffers: shared hit=4\n   ->  Sort  (cost=1.23..1.26 rows=9 width=10) (actual rows=9 loops=1)\n         Sort Key: age DESC\n         Sort Method: quicksort  Memory: 25kB\n         Buffers: shared hit=4\n         ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=10) (actual rows=9 loops=1)\n               Buffers: shared hit=1",
+  "my": "-> Window aggregate: rank() OVER (ORDER BY Address.age desc )   (actual time=0.0816..0.0835 rows=9 loops=1)\n    -> Sort: Address.age DESC  (cost=1.15 rows=9) (actual time=0.0708..0.0711 rows=9 loops=1)\n        -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0446..0.0517 rows=9 loops=1)",
+  "res": "  name  | age | rnk \n--------+-----+-----\n 井上   |  55 |   1\n 森     |  45 |   2\n 鈴木   |  32 |   3\n 林     |  32 |   3\n 小川   |  30 |   5\n 佐藤   |  25 |   6\n 前田   |  21 |   7\n 松本   |  20 |   8\n 佐々木 |  19 |   9"
+ },
+ "set_except": {
+  "sql": "SELECT *\n  FROM Address\nEXCEPT\nSELECT *\n  FROM Address2",
+  "pg": " HashSetOp Except  (cost=0.00..2.56 rows=9 width=274) (actual rows=7 loops=1)\n   Buffers: shared hit=2\n   ->  Append  (cost=0.00..2.38 rows=15 width=274) (actual rows=15 loops=1)\n         Buffers: shared hit=2\n         ->  Subquery Scan on \"*SELECT* 1\"  (cost=0.00..1.18 rows=9 width=45) (actual rows=9 loops=1)\n               Buffers: shared hit=1\n               ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=41) (actual rows=9 loops=1)\n                     Buffers: shared hit=1\n         ->  Subquery Scan on \"*SELECT* 2\"  (cost=0.00..1.12 rows=6 width=45) (actual rows=6 loops=1)\n               Buffers: shared hit=1\n               ->  Seq Scan on address2  (cost=0.00..1.06 rows=6 width=41) (actual rows=6 loops=1)\n                     Buffers: shared hit=1",
+  "my": "-> Table scan on <except temporary>  (cost=3.19..5.51 rows=9) (actual time=0.0742..0.0752 rows=7 loops=1)\n    -> Except materialize with deduplication  (cost=2.9..2.9 rows=9) (actual time=0.0738..0.0738 rows=9 loops=1)\n        -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0318..0.0369 rows=9 loops=1)\n        -> Table scan on Address2  (cost=0.85 rows=6) (actual time=0.00587..0.00671 rows=6 loops=1)",
+  "res": "  name  |   phone_nbr   | address  |  sex  | age \n--------+---------------+----------+-------+-----\n 井上   |               | 福島県   | 女    |  55\n 佐藤   | 090-1922-XXXX | 三重県   | 女    |  25\n 森     | 090-2984-XXXX | 東京都   | 男    |  45\n 松本   |               | 千葉県   | 女    |  20\n 佐々木 | 080-5848-XXXX | 千葉県   | 女    |  19\n 前田   | 090-0000-XXXX | 東京都   | 女    |  21\n 鈴木   | 090-0001-XXXX | 和歌山県 | 男    |  32"
+ },
+ "set_intersect": {
+  "sql": "SELECT *\n  FROM Address\nINTERSECT\nSELECT *\n  FROM Address2",
+  "pg": " HashSetOp Intersect  (cost=0.00..2.56 rows=6 width=274) (actual rows=2 loops=1)\n   Buffers: shared hit=2\n   ->  Append  (cost=0.00..2.38 rows=15 width=274) (actual rows=15 loops=1)\n         Buffers: shared hit=2\n         ->  Subquery Scan on \"*SELECT* 2\"  (cost=0.00..1.12 rows=6 width=45) (actual rows=6 loops=1)\n               Buffers: shared hit=1\n               ->  Seq Scan on address2  (cost=0.00..1.06 rows=6 width=41) (actual rows=6 loops=1)\n                     Buffers: shared hit=1\n         ->  Subquery Scan on \"*SELECT* 1\"  (cost=0.00..1.18 rows=9 width=45) (actual rows=9 loops=1)\n               Buffers: shared hit=1\n               ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=41) (actual rows=9 loops=1)\n                     Buffers: shared hit=1",
+  "my": "-> Table scan on <intersect temporary>  (cost=3.03..5.18 rows=6) (actual time=0.0937..0.094 rows=2 loops=1)\n    -> Intersect materialize with deduplication  (cost=2.6..2.6 rows=6) (actual time=0.0929..0.0929 rows=9 loops=1)\n        -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0491..0.0544 rows=9 loops=1)\n        -> Table scan on Address2  (cost=0.85 rows=6) (actual time=0.00708..0.00788 rows=6 loops=1)",
+  "res": " name |   phone_nbr   | address |  sex  | age \n------+---------------+---------+-------+-----\n 小川 | 080-3333-XXXX | 東京都  | 男    |  30\n 林   | 080-3333-XXXX | 福島県  | 男    |  32"
+ },
+ "set_union": {
+  "sql": "SELECT *\n  FROM Address\nUNION\nSELECT *\n  FROM Address2",
+  "pg": " HashAggregate  (cost=2.41..2.56 rows=15 width=270) (actual rows=13 loops=1)\n   Group Key: address.name, address.phone_nbr, address.address, address.sex, address.age\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=2\n   ->  Append  (cost=0.00..2.23 rows=15 width=270) (actual rows=15 loops=1)\n         Buffers: shared hit=2\n         ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=41) (actual rows=9 loops=1)\n               Buffers: shared hit=1\n         ->  Seq Scan on address2  (cost=0.00..1.06 rows=6 width=41) (actual rows=6 loops=1)\n               Buffers: shared hit=1",
+  "my": "-> Table scan on <union temporary>  (cost=3.68..6.19 rows=15) (actual time=0.0477..0.0493 rows=13 loops=1)\n    -> Union materialize with deduplication  (cost=3.5..3.5 rows=15) (actual time=0.0467..0.0467 rows=13 loops=1)\n        -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0208..0.0244 rows=9 loops=1)\n        -> Table scan on Address2  (cost=0.85 rows=6) (actual time=0.00529..0.00608 rows=6 loops=1)",
+  "res": "  name  |   phone_nbr   | address  |  sex  | age \n--------+---------------+----------+-------+-----\n 鈴木   | 090-0001-XXXX | 和歌山県 | 男    |  32\n 斉藤   | 080-2367-XXXX | 千葉県   | 女    |  19\n 林     | 080-3333-XXXX | 福島県   | 男    |  32\n 武田   |               | 福島県   | 男    |  18\n 井上   |               | 福島県   | 女    |  55\n 上野   |               | 千葉県   | 女    |  20\n 小川   | 080-3333-XXXX | 東京都   | 男    |  30\n 広田   | 090-0205-XXXX | 三重県   | 男    |  25\n 佐藤   | 090-1922-XXXX | 三重県   | 女    |  25\n 森     | 090-2984-XXXX | 東京都   | 男    |  45\n 松本   |               | 千葉県   | 女    |  20\n 佐々木 | 080-5848-XXXX | 千葉県   | 女    |  19\n 前田   | 090-0000-XXXX | 東京都   | 女    |  21"
+ },
+ "set_union_all": {
+  "sql": "SELECT *\n  FROM Address\nUNION ALL\nSELECT *\n  FROM Address2",
+  "pg": " Append  (cost=0.00..2.23 rows=15 width=41) (actual rows=15 loops=1)\n   Buffers: shared hit=2\n   ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=41) (actual rows=9 loops=1)\n         Buffers: shared hit=1\n   ->  Seq Scan on address2  (cost=0.00..1.06 rows=6 width=41) (actual rows=6 loops=1)\n         Buffers: shared hit=1",
+  "my": "-> Append  (cost=2 rows=15) (actual time=0.0457..0.0636 rows=15 loops=1)\n    -> Stream results  (cost=1.15 rows=9) (actual time=0.0448..0.051 rows=9 loops=1)\n        -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0375..0.0417 rows=9 loops=1)\n    -> Stream results  (cost=0.85 rows=6) (actual time=0.00812..0.00988 rows=6 loops=1)\n        -> Table scan on Address2  (cost=0.85 rows=6) (actual time=0.00762..0.00837 rows=6 loops=1)",
+  "res": "  name  |   phone_nbr   | address  |  sex  | age \n--------+---------------+----------+-------+-----\n 小川   | 080-3333-XXXX | 東京都   | 男    |  30\n 前田   | 090-0000-XXXX | 東京都   | 女    |  21\n 森     | 090-2984-XXXX | 東京都   | 男    |  45\n 林     | 080-3333-XXXX | 福島県   | 男    |  32\n 井上   |               | 福島県   | 女    |  55\n 佐々木 | 080-5848-XXXX | 千葉県   | 女    |  19\n 松本   |               | 千葉県   | 女    |  20\n 佐藤   | 090-1922-XXXX | 三重県   | 女    |  25\n 鈴木   | 090-0001-XXXX | 和歌山県 | 男    |  32\n 小川   | 080-3333-XXXX | 東京都   | 男    |  30\n 林     | 080-3333-XXXX | 福島県   | 男    |  32\n 武田   |               | 福島県   | 男    |  18\n 斉藤   | 080-2367-XXXX | 千葉県   | 女    |  19\n 上野   |               | 千葉県   | 女    |  20\n（以下略。全15行）"
+ },
+ "upd_comma": {
+  "sql": "UPDATE Address\n   SET phone_nbr = '080-5849-XXXX',\n       age = 20\n WHERE name = '佐々木'",
+  "pg": " Update on address  (cost=0.00..1.11 rows=0 width=0) (actual rows=0 loops=1)\n   Buffers: shared hit=3\n   ->  Seq Scan on address  (cost=0.00..1.11 rows=1 width=92) (actual rows=1 loops=1)\n         Filter: ((name)::text = '佐々木'::text)\n         Rows Removed by Filter: 8\n         Buffers: shared hit=1",
+  "my": "（MySQL 8.0 の EXPLAIN ANALYZE は、1つのテーブルだけを更新する UPDATE 文の計画を表示しません）",
+  "res": "UPDATE 1（佐々木さんの行を1行更新しました。このドリルでは更新をロールバックしています）"
+ },
+ "upd_null": {
+  "sql": "UPDATE Address\n   SET phone_nbr = NULL\n WHERE name = '佐々木'",
+  "pg": " Update on address  (cost=0.00..1.11 rows=0 width=0) (actual rows=0 loops=1)\n   Buffers: shared hit=3\n   ->  Seq Scan on address  (cost=0.00..1.11 rows=1 width=88) (actual rows=1 loops=1)\n         Filter: ((name)::text = '佐々木'::text)\n         Rows Removed by Filter: 8\n         Buffers: shared hit=1",
+  "my": "（MySQL 8.0 の EXPLAIN ANALYZE は、1つのテーブルだけを更新する UPDATE 文の計画を表示しません）",
+  "res": "UPDATE 1（佐々木さんの行を1行更新しました。このドリルでは更新をロールバックしています）"
+ },
+ "upd_row": {
+  "sql": "UPDATE Address\n   SET (phone_nbr, age) = ('080-5849-XXXX', 20)\n WHERE name = '佐々木'",
+  "pg": " Update on address  (cost=0.00..1.11 rows=0 width=0) (actual rows=0 loops=1)\n   Buffers: shared hit=3\n   ->  Seq Scan on address  (cost=0.00..1.11 rows=1 width=92) (actual rows=1 loops=1)\n         Filter: ((name)::text = '佐々木'::text)\n         Rows Removed by Filter: 8\n         Buffers: shared hit=1",
+  "my": "ERROR 1064 (42000) at line 2: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '(phone_nbr, age) = ('080-5849-XXXX', 20)\n WHERE name = '佐々木'' at line 2",
+  "res": "UPDATE 1（佐々木さんの行を1行更新しました。このドリルでは更新をロールバックしています）"
+ },
+ "view_sub": {
+  "sql": "SELECT v_address, cnt\n  FROM (SELECT address AS v_address, COUNT(*) AS cnt\n          FROM Address\n         GROUP BY address) CountAddress",
+  "pg": " HashAggregate  (cost=1.14..1.19 rows=5 width=18) (actual rows=5 loops=1)\n   Group Key: address.address\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=1\n   ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=10) (actual rows=9 loops=1)\n         Buffers: shared hit=1",
+  "my": "-> Table scan on CountAddress  (cost=2.5..2.5 rows=0) (actual time=0.0765..0.0769 rows=5 loops=1)\n    -> Materialize  (cost=0..0 rows=0) (actual time=0.0762..0.0762 rows=5 loops=1)\n        -> Table scan on <temporary>  (actual time=0.0613..0.0618 rows=5 loops=1)\n            -> Aggregate using temporary table  (actual time=0.0608..0.0608 rows=5 loops=1)\n                -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0356..0.0419 rows=9 loops=1)",
+  "res": " v_address | cnt \n-----------+-----\n 東京都    |   3\n 千葉県    |   2\n 和歌山県  |   1\n 三重県    |   1\n 福島県    |   2"
+ },
+ "view_use": {
+  "sql": "SELECT v_address, cnt\n  FROM CountAddress",
+  "pg": " HashAggregate  (cost=1.14..1.19 rows=5 width=18) (actual rows=5 loops=1)\n   Group Key: address.address\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=1\n   ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=10) (actual rows=9 loops=1)\n         Buffers: shared hit=1",
+  "my": "-> Table scan on CountAddress  (cost=2.5..2.5 rows=0) (actual time=0.0374..0.0379 rows=5 loops=1)\n    -> Materialize  (cost=0..0 rows=0) (actual time=0.0372..0.0372 rows=5 loops=1)\n        -> Table scan on <temporary>  (actual time=0.0258..0.0263 rows=5 loops=1)\n            -> Aggregate using temporary table  (actual time=0.0251..0.0251 rows=5 loops=1)\n                -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.00983..0.012 rows=9 loops=1)",
+  "res": " v_address | cnt \n-----------+-----\n 東京都    |   3\n 千葉県    |   2\n 和歌山県  |   1\n 三重県    |   1\n 福島県    |   2"
+ },
+ "win_count": {
+  "sql": "SELECT address,\n       COUNT(*) OVER(PARTITION BY address)\n  FROM Address",
+  "pg": " WindowAgg  (cost=1.23..1.39 rows=9 width=18) (actual rows=9 loops=1)\n   Buffers: shared hit=4\n   ->  Sort  (cost=1.23..1.26 rows=9 width=10) (actual rows=9 loops=1)\n         Sort Key: address\n         Sort Method: quicksort  Memory: 25kB\n         Buffers: shared hit=4\n         ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=10) (actual rows=9 loops=1)\n               Buffers: shared hit=1",
+  "my": "-> Window aggregate with buffering: count(0) OVER (PARTITION BY Address.address )   (actual time=0.103..0.109 rows=9 loops=1)\n    -> Sort: Address.address  (cost=1.15 rows=9) (actual time=0.0813..0.0817 rows=9 loops=1)\n        -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0531..0.0595 rows=9 loops=1)",
+  "res": " address  | count \n----------+-------\n 三重県   |     1\n 千葉県   |     2\n 千葉県   |     2\n 和歌山県 |     1\n 東京都   |     3\n 東京都   |     3\n 東京都   |     3\n 福島県   |     2\n 福島県   |     2"
+ },
+ "win_group": {
+  "sql": "SELECT address, COUNT(*)\n  FROM Address\n GROUP BY address",
+  "pg": " HashAggregate  (cost=1.14..1.19 rows=5 width=18) (actual rows=5 loops=1)\n   Group Key: address\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=1\n   ->  Seq Scan on address  (cost=0.00..1.09 rows=9 width=10) (actual rows=9 loops=1)\n         Buffers: shared hit=1",
+  "my": "-> Table scan on <temporary>  (actual time=0.0682..0.0686 rows=5 loops=1)\n    -> Aggregate using temporary table  (actual time=0.0676..0.0676 rows=5 loops=1)\n        -> Table scan on Address  (cost=1.15 rows=9) (actual time=0.0358..0.043 rows=9 loops=1)",
+  "res": " address  | count \n----------+-------\n 東京都   |     3\n 千葉県   |     2\n 和歌山県 |     1\n 三重県   |     1\n 福島県   |     2"
+ }
+}

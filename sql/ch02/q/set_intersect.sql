@@ -1,0 +1,5 @@
+SELECT *
+  FROM Address
+INTERSECT
+SELECT *
+  FROM Address2

@@ -1,0 +1,74 @@
+{
+ "full": {
+  "sql": "SELECT *\n  FROM Shops",
+  "pg": " Seq Scan on shops  (cost=0.00..917.00 rows=50000 width=32) (actual rows=50000 loops=1)\n   Buffers: shared hit=417",
+  "my": "-> Table scan on Shops  (cost=5066 rows=50100) (actual time=0.0774..8.38 rows=50000 loops=1)",
+  "res": " shop_id | shop_name | rating |  area  \n---------+-----------+--------+--------\n 00001   | 商店00001 |      3 | 青森県\n 00002   | 商店00002 |      5 | 岩手県\n 00003   | 商店00003 |      2 | 宮城県\n 00004   | 商店00004 |      4 | 秋田県\n 00005   | 商店00005 |      1 | 山形県\n 00006   | 商店00006 |      3 | 福島県\n 00007   | 商店00007 |      5 | 東京都\n 00008   | 商店00008 |      2 | 大阪府\n 00009   | 商店00009 |      4 | 福岡県\n 00010   | 商店00010 |      1 | 北海道\n 00011   | 商店00011 |      3 | 青森県\n 00012   | 商店00012 |      5 | 岩手県\n 00013   | 商店00013 |      2 | 宮城県\n 00014   | 商店00014 |      4 | 秋田県\n（以下略。全50,000行）"
+ },
+ "join": {
+  "sql": "SELECT shop_name\n  FROM Shops S INNER JOIN Reservations R\n    ON S.shop_id = R.shop_id",
+  "pg": " Merge Join  (cost=1.56..1.78 rows=10 width=12) (actual rows=10 loops=1)\n   Merge Cond: (s.shop_id = r.shop_id)\n   Buffers: shared hit=4\n   ->  Index Scan using pk_shops on shops s  (cost=0.29..1726.29 rows=50000 width=18) (actual rows=11 loops=1)\n         Buffers: shared hit=3\n   ->  Sort  (cost=1.27..1.29 rows=10 width=6) (actual rows=10 loops=1)\n         Sort Key: r.shop_id\n         Sort Method: quicksort  Memory: 25kB\n         Buffers: shared hit=1\n         ->  Seq Scan on reservations r  (cost=0.00..1.10 rows=10 width=6) (actual rows=10 loops=1)\n               Buffers: shared hit=1",
+  "my": "-> Nested loop inner join  (cost=4.75 rows=10) (actual time=0.0441..0.0611 rows=10 loops=1)\n    -> Table scan on R  (cost=1.25 rows=10) (actual time=0.0233..0.026 rows=10 loops=1)\n    -> Single-row index lookup on S using PRIMARY (shop_id=R.shop_id)  (cost=0.26 rows=1) (actual time=0.00305..0.00307 rows=1 loops=10)",
+  "res": " shop_name \n-----------\n 商店00001\n 商店00002\n 商店00003\n 商店00004\n 商店00005\n 商店00006\n 商店00007\n 商店00008\n 商店00009\n 商店00010"
+ },
+ "pk": {
+  "sql": "SELECT *\n  FROM Shops\n WHERE shop_id = '00050'",
+  "pg": " Index Scan using pk_shops on shops  (cost=0.29..8.31 rows=1 width=32) (actual rows=1 loops=1)\n   Index Cond: (shop_id = '00050'::bpchar)\n   Buffers: shared hit=3",
+  "my": "-> Rows fetched before execution  (cost=0..0 rows=1) (actual time=41e-6..82e-6 rows=1 loops=1)",
+  "res": " shop_id | shop_name | rating |  area  \n---------+-----------+--------+--------\n 00050   | 商店00050 |      1 | 北海道"
+ },
+ "range_narrow": {
+  "sql": "SELECT *\n  FROM Shops\n WHERE shop_id BETWEEN '00010' AND '00020'",
+  "pg": " Index Scan using pk_shops on shops  (cost=0.29..8.33 rows=2 width=32) (actual rows=11 loops=1)\n   Index Cond: ((shop_id >= '00010'::bpchar) AND (shop_id <= '00020'::bpchar))\n   Buffers: shared hit=3",
+  "my": "-> Filter: (Shops.shop_id between '00010' and '00020')  (cost=2.46 rows=11) (actual time=0.026..0.0298 rows=11 loops=1)\n    -> Index range scan on Shops using PRIMARY over ('00010' <= shop_id <= '00020')  (cost=2.46 rows=11) (actual time=0.0233..0.0258 rows=11 loops=1)",
+  "res": " shop_id | shop_name | rating |  area  \n---------+-----------+--------+--------\n 00010   | 商店00010 |      1 | 北海道\n 00011   | 商店00011 |      3 | 青森県\n 00012   | 商店00012 |      5 | 岩手県\n 00013   | 商店00013 |      2 | 宮城県\n 00014   | 商店00014 |      4 | 秋田県\n 00015   | 商店00015 |      1 | 山形県\n 00016   | 商店00016 |      3 | 福島県\n 00017   | 商店00017 |      5 | 東京都\n 00018   | 商店00018 |      2 | 大阪府\n 00019   | 商店00019 |      4 | 福岡県\n 00020   | 商店00020 |      1 | 北海道"
+ },
+ "range_wide": {
+  "sql": "SELECT *\n  FROM Shops\n WHERE shop_id >= '00010'",
+  "pg": " Seq Scan on shops  (cost=0.00..1042.00 rows=49999 width=32) (actual rows=49991 loops=1)\n   Filter: (shop_id >= '00010'::bpchar)\n   Rows Removed by Filter: 9\n   Buffers: shared hit=417",
+  "my": "-> Filter: (Shops.shop_id >= '00010')  (cost=5017 rows=25050) (actual time=0.105..14.1 rows=49991 loops=1)\n    -> Index range scan on Shops using PRIMARY over ('00010' <= shop_id)  (cost=5017 rows=25050) (actual time=0.103..9.89 rows=49991 loops=1)",
+  "res": " shop_id | shop_name | rating |  area  \n---------+-----------+--------+--------\n 00010   | 商店00010 |      1 | 北海道\n 00011   | 商店00011 |      3 | 青森県\n 00012   | 商店00012 |      5 | 岩手県\n 00013   | 商店00013 |      2 | 宮城県\n 00014   | 商店00014 |      4 | 秋田県\n 00015   | 商店00015 |      1 | 山形県\n 00016   | 商店00016 |      3 | 福島県\n 00017   | 商店00017 |      5 | 東京都\n 00018   | 商店00018 |      2 | 大阪府\n 00019   | 商店00019 |      4 | 福岡県\n 00020   | 商店00020 |      1 | 北海道\n 00021   | 商店00021 |      3 | 青森県\n 00022   | 商店00022 |      5 | 岩手県\n 00023   | 商店00023 |      2 | 宮城県\n（以下略。全49,991行）"
+ },
+ "rating": {
+  "sql": "SELECT *\n  FROM Shops\n WHERE rating = 5",
+  "pg": " Seq Scan on shops  (cost=0.00..1042.00 rows=10077 width=32) (actual rows=10000 loops=1)\n   Filter: (rating = 5)\n   Rows Removed by Filter: 40000\n   Buffers: shared hit=417",
+  "my": "-> Filter: (Shops.rating = 5)  (cost=5066 rows=5010) (actual time=0.0857..12.4 rows=10000 loops=1)\n    -> Table scan on Shops  (cost=5066 rows=50100) (actual time=0.0825..9.99 rows=50000 loops=1)",
+  "res": " shop_id | shop_name | rating |  area  \n---------+-----------+--------+--------\n 00002   | 商店00002 |      5 | 岩手県\n 00007   | 商店00007 |      5 | 東京都\n 00012   | 商店00012 |      5 | 岩手県\n 00017   | 商店00017 |      5 | 東京都\n 00022   | 商店00022 |      5 | 岩手県\n 00027   | 商店00027 |      5 | 東京都\n 00032   | 商店00032 |      5 | 岩手県\n 00037   | 商店00037 |      5 | 東京都\n 00042   | 商店00042 |      5 | 岩手県\n 00047   | 商店00047 |      5 | 東京都\n 00052   | 商店00052 |      5 | 岩手県\n 00057   | 商店00057 |      5 | 東京都\n 00062   | 商店00062 |      5 | 岩手県\n 00067   | 商店00067 |      5 | 東京都\n（以下略。全10,000行）"
+ },
+ "sort_16mb": {
+  "sql": "SELECT *\n  FROM Shops\n ORDER BY shop_name DESC",
+  "pg": " Sort  (cost=4819.41..4944.41 rows=50000 width=32) (actual rows=50000 loops=1)\n   Sort Key: shop_name DESC\n   Sort Method: quicksort  Memory: 4662kB\n   Buffers: shared hit=420\n   ->  Seq Scan on shops  (cost=0.00..917.00 rows=50000 width=32) (actual rows=50000 loops=1)\n         Buffers: shared hit=417",
+  "my": "-> Sort: Shops.shop_name DESC  (cost=5066 rows=50100) (actual time=22.6..25.6 rows=50000 loops=1)\n    -> Table scan on Shops  (cost=5066 rows=50100) (actual time=0.273..9.71 rows=50000 loops=1)",
+  "res": " shop_id | shop_name | rating |  area  \n---------+-----------+--------+--------\n 50000   | 商店50000 |      1 | 北海道\n 49999   | 商店49999 |      4 | 福岡県\n 49998   | 商店49998 |      2 | 大阪府\n 49997   | 商店49997 |      5 | 東京都\n 49996   | 商店49996 |      3 | 福島県\n 49995   | 商店49995 |      1 | 山形県\n 49994   | 商店49994 |      4 | 秋田県\n 49993   | 商店49993 |      2 | 宮城県\n 49992   | 商店49992 |      5 | 岩手県\n 49991   | 商店49991 |      3 | 青森県\n 49990   | 商店49990 |      1 | 北海道\n 49989   | 商店49989 |      4 | 福岡県\n 49988   | 商店49988 |      2 | 大阪府\n 49987   | 商店49987 |      5 | 東京都\n（以下略。全50,000行）"
+ },
+ "sort_4mb": {
+  "sql": "SELECT *\n  FROM Shops\n ORDER BY shop_name DESC",
+  "pg": " Sort  (cost=4819.41..4944.41 rows=50000 width=32) (actual rows=50000 loops=1)\n   Sort Key: shop_name DESC\n   Sort Method: external merge  Disk: 2160kB\n   Buffers: shared hit=420, temp read=270 written=271\n   ->  Seq Scan on shops  (cost=0.00..917.00 rows=50000 width=32) (actual rows=50000 loops=1)\n         Buffers: shared hit=417",
+  "my": "-> Sort: Shops.shop_name DESC  (cost=5066 rows=50100) (actual time=21.4..24.6 rows=50000 loops=1)\n    -> Table scan on Shops  (cost=5066 rows=50100) (actual time=0.0845..9.24 rows=50000 loops=1)",
+  "res": " shop_id | shop_name | rating |  area  \n---------+-----------+--------+--------\n 50000   | 商店50000 |      1 | 北海道\n 49999   | 商店49999 |      4 | 福岡県\n 49998   | 商店49998 |      2 | 大阪府\n 49997   | 商店49997 |      5 | 東京都\n 49996   | 商店49996 |      3 | 福島県\n 49995   | 商店49995 |      1 | 山形県\n 49994   | 商店49994 |      4 | 秋田県\n 49993   | 商店49993 |      2 | 宮城県\n 49992   | 商店49992 |      5 | 岩手県\n 49991   | 商店49991 |      3 | 青森県\n 49990   | 商店49990 |      1 | 北海道\n 49989   | 商店49989 |      4 | 福岡県\n 49988   | 商店49988 |      2 | 大阪府\n 49987   | 商店49987 |      5 | 東京都\n（以下略。全50,000行）"
+ },
+ "stale1_before": {
+  "sql": "SELECT *\n  FROM Shops",
+  "pg": " Seq Scan on shops  (cost=0.00..917.00 rows=50000 width=32) (actual rows=0 loops=1)\n   Buffers: shared hit=417",
+  "my": "-> Table scan on Shops  (cost=66.2 rows=100) (actual time=0.0189..0.0189 rows=0 loops=1)",
+  "res": " shop_id | shop_name | rating | area \n---------+-----------+--------+------"
+ },
+ "stale2_after": {
+  "sql": "SELECT *\n  FROM Shops",
+  "pg": " Seq Scan on shops  (cost=0.00..417.00 rows=1 width=32) (actual rows=0 loops=1)\n   Buffers: shared hit=417",
+  "my": "-> Table scan on Shops  (cost=0.35 rows=1) (actual time=0.00571..0.00571 rows=0 loops=1)",
+  "res": " shop_id | shop_name | rating | area \n---------+-----------+--------+------"
+ },
+ "cache1": {
+  "sql": "SELECT *\n  FROM Shops",
+  "pg": " Seq Scan on shops  (cost=0.00..917.00 rows=50000 width=32) (actual rows=50000 loops=1)\n   Buffers: shared read=417",
+  "my": "（MySQLのEXPLAINには、バッファプールから読んだかディスクから読んだかは出ません）",
+  "res": ""
+ },
+ "cache2": {
+  "sql": "SELECT *\n  FROM Shops",
+  "pg": " Seq Scan on shops  (cost=0.00..917.00 rows=50000 width=32) (actual rows=50000 loops=1)\n   Buffers: shared hit=417",
+  "my": "（MySQLのEXPLAINには、バッファプールから読んだかディスクから読んだかは出ません）",
+  "res": ""
+ }
+}

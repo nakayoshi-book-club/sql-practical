@@ -1,0 +1,3 @@
+SELECT COUNT(*)
+  FROM Address
+ GROUP BY ( )

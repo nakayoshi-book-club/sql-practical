@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>/*TITLE*/</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=M+PLUS+1+Code:wght@400;600&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap">
+<style>
+/* Layout: 1問1枚のスライド。左に問題と選択肢、右に EXPLAIN 出力を読むパネル。下にページ送り */
+:root {
+  --bg: #e8ecf0;
+  --surface: #f7f9fb;
+  --ink: #17202b;
+  --muted: #55606e;
+  --line: #cdd4dc;
+  --code-bg: #eef2f6;
+  --accent: #2448b8;
+  --accent-soft: #dfe6fa;
+  --scan: #b4500c;
+  --scan-soft: #fbe7d8;
+  --ok: #1d7448;
+  --ok-soft: #dcefe4;
+  --ng: #b3261e;
+  --ng-soft: #f8dedb;
+  --f-display: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --f-body: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --f-code: "M PLUS 1 Code", "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10151c; --surface: #18202a; --ink: #e6ebf1; --muted: #9aa6b4; --line: #2c3643; --code-bg: #0d1218;
+    --accent: #85a2ff; --accent-soft: #1f2a4d; --scan: #f39a55; --scan-soft: #3d2615;
+    --ok: #62c891; --ok-soft: #15332a; --ng: #f2827a; --ng-soft: #3d1c1a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10151c; --surface: #18202a; --ink: #e6ebf1; --muted: #9aa6b4; --line: #2c3643; --code-bg: #0d1218;
+  --accent: #85a2ff; --accent-soft: #1f2a4d; --scan: #f39a55; --scan-soft: #3d2615;
+  --ok: #62c891; --ok-soft: #15332a; --ng: #f2827a; --ng-soft: #3d1c1a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.7;
+  padding-inline: 16px; padding-block: 16px 0;
+  display: flex; flex-direction: column;
+}
+.app { flex: 1; display: flex; flex-direction: column; gap: 12px; max-width: 1240px; width: 100%; margin-inline: auto; min-height: 0; }
+.slide {
+  flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: clamp(18px, 3vw, 36px); display: flex; flex-direction: column; gap: 18px; min-height: 0; overflow: auto;
+}
+.head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; color: var(--muted); }
+.qno { font-family: var(--f-code); font-weight: 600; color: var(--accent); font-size: 13px; }
+h1, h2 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.3; }
+h1 { font-size: clamp(30px, 5vw, 52px); font-weight: 900; }
+h2 { font-size: clamp(22px, 3vw, 30px); font-weight: 700; }
+p { margin: 0; }
+.prompt { font-size: 16px; max-width: 62ch; }
+.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 28px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.choices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.choice {
+  width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: var(--bg); border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 14px;
+  display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start;
+  transition: border-color .15s, background .15s;
+}
+.choice:hover { border-color: var(--accent); }
+.choice:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.choice .key { font-family: var(--f-code); font-weight: 600; color: var(--muted); }
+.choice code { font-family: var(--f-code); font-size: 12.5px; white-space: pre; display: block; overflow-x: auto; color: var(--ink); line-height: 1.55; }
+.choice .ctext { min-width: 0; }
+.choice.viewing { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.choice.is-ok { background: var(--ok-soft); border-color: var(--ok); }
+.choice.is-ng { background: var(--ng-soft); border-color: var(--ng); }
+.choice .mark { display: block; font-size: 12px; font-weight: 700; margin-bottom: 2px; }
+.choice.is-ok .mark { color: var(--ok); }
+.choice.is-ng .mark { color: var(--ng); }
+
+.feedback { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.verdict { font-family: var(--f-display); font-weight: 900; font-size: 20px; }
+.verdict.ok { color: var(--ok); }
+.verdict.ng { color: var(--ng); }
+.takeaway { background: var(--accent-soft); border-radius: 6px; padding: 10px 14px; font-size: 14px; }
+.takeaway b { color: var(--accent); }
+.hint { color: var(--muted); font-size: 13px; }
+
+.panel { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); min-width: 0; display: flex; flex-direction: column; }
+.tabs { display: flex; gap: 2px; padding: 6px 6px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tab { font: inherit; font-size: 13px; padding: 6px 14px; border: none; background: none; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+.tab[aria-selected="true"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--accent); }
+.tab:disabled { opacity: .45; cursor: not-allowed; }
+.pbody { padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pill { font: inherit; font-size: 12.5px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 3px 12px; cursor: pointer; }
+.pill[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: inherit; font-size: 12.5px; border: none; background: var(--surface); color: var(--muted); padding: 4px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.chip { font-size: 12.5px; font-weight: 700; padding: 2px 10px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.chip.full { background: var(--scan-soft); color: var(--scan); }
+.chip.idx { background: var(--accent-soft); color: var(--accent); }
+.chip.pages { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.chip.err { background: var(--ng-soft); color: var(--ng); }
+.label { font-size: 11.5px; letter-spacing: .08em; color: var(--muted); }
+pre {
+  margin: 0; font-family: var(--f-code); font-size: 12.5px; line-height: 1.6; background: var(--code-bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; overflow-x: auto; color: var(--ink);
+}
+pre .l { display: block; }
+pre .full { background: var(--scan-soft); color: var(--scan); font-weight: 600; }
+pre .idx { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+pre .dim { color: var(--muted); }
+pre .err { color: var(--ng); }
+pre .new { animation: grow .6s ease-out; }
+@keyframes grow { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+
+.tbl-wrap { overflow: auto; max-height: 340px; border: 1px solid var(--line); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+th, td { padding: 4px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+th { position: sticky; top: 0; background: var(--surface); font-family: var(--f-code); font-weight: 600; font-size: 12px; }
+td.num { text-align: right; }
+td.null { color: var(--muted); font-style: italic; }
+tr.mark td { background: var(--scan-soft); }
+
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.legend .lf::before { background: var(--scan); }
+.legend .li::before { background: var(--accent); }
+
+.cover { justify-content: center; gap: 26px; }
+.cover .lede { font-size: 17px; max-width: 60ch; color: var(--muted); }
+.cover-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
+.card h3 { margin: 0; font-family: var(--f-display); font-size: 16px; }
+.card p { font-size: 13.5px; color: var(--muted); }
+.big-btn { font: inherit; font-weight: 700; align-self: flex-start; background: var(--ink); color: var(--surface); border: none; border-radius: 8px; padding: 10px 22px; cursor: pointer; }
+
+.steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 760px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+.lane { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lane h3 { margin: 0; font-family: var(--f-display); font-size: 17px; }
+.step { border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; background: var(--bg); display: grid; gap: 2px; transition: opacity .25s, border-color .25s; }
+.step code { font-family: var(--f-code); font-size: 12.5px; overflow-x: auto; white-space: pre; display: block; }
+.step .out { font-size: 13.5px; font-weight: 700; }
+.step.pending { opacity: .3; }
+.step.pending .out { visibility: hidden; }
+.step.now { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.step.skip { opacity: .45; border-style: dashed; }
+.step .t { color: var(--ok); } .step .f { color: var(--ng); } .step .n { color: var(--muted); }
+
+.score { font-family: var(--f-display); font-weight: 900; font-size: clamp(44px, 8vw, 80px); line-height: 1; font-variant-numeric: tabular-nums; }
+.recap { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 18px; }
+.recap li { display: flex; gap: 10px; font-size: 14px; }
+.recap .r { font-weight: 700; width: 4.5em; flex: none; }
+.recap .r.ok { color: var(--ok); } .recap .r.ng { color: var(--ng); } .recap .r.na { color: var(--muted); }
+.points { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; max-width: 70ch; }
+
+.nav { display: flex; align-items: center; gap: 12px; padding-block: 4px calc(12px + env(safe-area-inset-bottom, 0px)); }
+.nav button.arrow { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 6px 14px; cursor: pointer; flex: none; }
+.nav button.arrow:disabled { opacity: .4; cursor: default; }
+.dots { flex: 1; display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
+.dot { width: 22px; height: 6px; border-radius: 3px; border: none; background: var(--line); cursor: pointer; padding: 0; }
+.dot.cur { background: var(--ink); }
+.dot.ok { background: var(--ok); }
+.dot.ng { background: var(--ng); }
+.dot.cur.ok, .dot.cur.ng { outline: 2px solid var(--ink); outline-offset: 1px; }
+.pos { font-family: var(--f-code); font-size: 12px; color: var(--muted); min-width: 4.5em; text-align: right; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="slide" id="stage" aria-live="polite"></main>
+  <nav class="nav" aria-label="スライド送り">
+    <button class="arrow" id="prev" type="button">← 前へ</button>
+    <div class="dots" id="dots"></div>
+    <span class="pos" id="pos"></span>
+    <button class="arrow" id="next" type="button">次へ →</button>
+  </nav>
+</div>
+
+<script>
+const D = /*DATA*/;
+/*CHAPTER*/
+
+
+const QUESTIONS = SLIDES.map((s, i) => s.type === "q" ? i : -1).filter(i => i >= 0);
+const KEYS = "ABCD";
+const STORE = CH.store;
+let state = { cur: 0, ans: {}, step: 0 };
+try { Object.assign(state, JSON.parse(localStorage.getItem(STORE) || "{}")); } catch (e) {}
+state.cur = Math.min(Math.max(0, state.cur | 0), SLIDES.length - 1);
+const view = {};
+function save() { try { localStorage.setItem(STORE, JSON.stringify({ cur: state.cur, ans: state.ans })); } catch (e) {} }
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+const RE = {
+  pg: { full: /Seq Scan on /, idx: /Bitmap Index Scan on |Index (Only )?Scan using / },
+  my: { full: /(Table|Index) scan on (?!<)/, idx: /Index lookup on |Index range scan on |Single-row index lookup on / },
+};
+function isError(t) { return /^ERROR/m.test(t); }
+function analyze(text, db) {
+  const lines = text.split("\n");
+  let full = 0, idx = 0;
+  const html = lines.map(l => {
+    let cls = "";
+    if (/^ERROR|^LINE \d|^\s+\^/.test(l)) cls = "err";
+    else if (RE[db].full.test(l)) { cls = "full"; full++; }
+    else if (RE[db].idx.test(l)) { cls = "idx"; idx++; }
+    else if (/Buffers:|Batches:|Memory Usage|Heap Blocks|Rows Removed/.test(l)) cls = "dim";
+    return `<span class="l ${cls}">${esc(l) || " "}</span>`;
+  }).join("");
+  const m = db === "pg" && text.match(/Buffers: shared hit=(\d+)/);
+  return { html, full, idx, pages: m ? +m[1] : null, error: isError(text) };
+}
+
+function renderTable(key) {
+  const t = T[key];
+  const head = t.cols.map(c => `<th>${esc(c)}</th>`).join("");
+  const body = t.rows.map((r, i) => `<tr class="${t.mark === i ? "mark" : ""}">${r.map(v =>
+    v === null ? `<td class="null">NULL</td>` : `<td class="${typeof v === "number" ? "num" : ""}">${esc(v)}</td>`).join("")}</tr>`).join("");
+  return `<div class="label">${esc(t.name)}</div><div class="tbl-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function queriesOf(s) {
+  return s.show || s.choices.filter(c => c.q).map(c => ({ q: c.q, tag: c.tag }));
+}
+
+function renderQ(s, i) {
+  const qn = QUESTIONS.indexOf(i) + 1;
+  const a = state.ans[i];
+  const answered = a !== undefined;
+  const v = view[i] || (view[i] = { tab: s.table ? "data" : "plan", viewing: a, q: null, db: s.db || "pg" });
+  const qs = queriesOf(s);
+  if (!v.q && qs.length) v.q = qs[s.showDefault || 0].q;
+
+  const choices = s.choices.map((c, k) => {
+    let cls = "choice", mark = "";
+    if (answered) {
+      if (c.ok) { cls += " is-ok"; mark = "正解"; }
+      else if (k === a) { cls += " is-ng"; mark = "あなたの回答"; }
+    }
+    if (answered && v.viewing === k) cls += " viewing";
+    const body = c.q ? `<code>${esc(D[c.q].sql)}</code>` : esc(c.text);
+    return `<li><button type="button" class="${cls}" data-choice="${k}"><span class="key">${KEYS[k]}</span><span class="ctext">${mark ? `<span class="mark">${mark}</span>` : ""}${body}</span></button></li>`;
+  }).join("");
+
+  let feedback = "";
+  if (answered) {
+    const ok = s.choices[a].ok;
+    const vc = s.choices[v.viewing ?? a];
+    feedback = `<div class="feedback">
+      <div class="verdict ${ok ? "ok" : "ng"}">${ok ? "正解" : "不正解"}</div>
+      <p><b>${KEYS[v.viewing ?? a]}${vc.tag ? "（" + esc(vc.tag) + "）" : ""}：</b>${esc(vc.note)}</p>
+      <p class="takeaway">${s.takeaway}</p>
+      <p class="hint">他の選択肢を押すと、その解説と実行計画を見られます（採点は最初の回答だけ）。</p>
+      <button type="button" class="pill" id="retry" style="align-self:flex-start">この問題をやり直す</button>
+    </div>`;
+  } else {
+    feedback = `<p class="hint">選択肢を押すと採点され、${qs.length ? "PostgreSQL 16とMySQL 8.0の実行計画" : "解説"}が表示されます。キーボードの1〜${s.choices.length}でも選べます。</p>`;
+  }
+
+  const hasPanel = s.table || qs.length;
+  let panel = "";
+  if (hasPanel) {
+    const tabs = [];
+    if (s.table) tabs.push(["data", "データ"]);
+    if (qs.length) tabs.push(["plan", "実行計画"], ["res", "結果"]);
+    const tabHtml = tabs.map(([id, label]) => {
+      const locked = id !== "data" && !answered;
+      return `<button type="button" class="tab" role="tab" data-tab="${id}" aria-selected="${v.tab === id}" ${locked ? "disabled title=\"回答すると見られます\"" : ""}>${label}${locked ? "（回答後）" : ""}</button>`;
+    }).join("");
+    let body = "";
+    if (v.tab === "data" || !answered) {
+      body = s.table.map(renderTable).join("") + (s.tableNote ? `<p class="hint">${esc(s.tableNote)}</p>` : "");
+    } else {
+      const d = D[v.q];
+      const pills = qs.length > 1 ? `<div class="row">${qs.map(x =>
+        `<button type="button" class="pill" data-q="${x.q}" aria-pressed="${x.q === v.q}">${esc(x.tag)}</button>`).join("")}</div>` : "";
+      if (v.tab === "plan") {
+        const r = analyze(v.db === "pg" ? d.pg : d.my, v.db);
+        const chips = r.error ? `<span class="chip err">エラー</span>` :
+          `<span class="chip full">フルスキャン ×${r.full}</span><span class="chip idx">インデックス検索 ×${r.idx}</span>` +
+          (r.pages !== null ? `<span class="chip pages">読んだページ ${r.pages.toLocaleString()}</span>` : "");
+        body = `${pills}
+          <div class="row"><div class="seg" role="group" aria-label="DBMS">
+            <button type="button" data-db="pg" aria-pressed="${v.db === "pg"}">PostgreSQL 16</button>
+            <button type="button" data-db="my" aria-pressed="${v.db === "my"}">MySQL 8.0</button></div>${chips}</div>
+          <div class="label">SQL</div><pre>${esc(d.sql)}</pre>
+          <div class="label">${v.db === "pg" ? "EXPLAIN (ANALYZE, BUFFERS)" : "EXPLAIN ANALYZE"}</div>
+          <pre class="plan">${r.html}</pre>
+          <div class="legend"><span class="lf">テーブルを全件読む</span><span class="li">インデックスで探す</span></div>`;
+      } else {
+        const res = (s.res === "resg" && d.resg) || d.res;
+        body = `${pills}<div class="label">PostgreSQL 16の結果${s.res === "resg" ? "（gを追加した状態）" : ""}</div><pre>${esc(res || "（結果の行はありません）")}</pre>${d.myres ? `<div class="label">MySQL 8.0の結果</div><pre>${esc(d.myres)}</pre>` : ""}`;
+      }
+    }
+    panel = `<section class="panel"><div class="tabs" role="tablist">${tabHtml}</div><div class="pbody">${body}</div></section>`;
+  }
+
+  const ref = s.ref ? `<button type="button" class="pill" data-ref="${s.ref}">基礎：${esc(SLIDES[slideOf(s.ref)].title)}</button>` : "";
+  return `<div class="head"><span class="qno">Q${qn} / ${QUESTIONS.length}</span><span class="eyebrow">${esc(s.sec)}</span>${ref}</div>
+    <h2>${esc(s.title)}</h2>
+    <div class="grid" style="${hasPanel ? "" : "grid-template-columns:minmax(0,1fr)"}">
+      <div class="col">
+        <p class="prompt">${esc(s.prompt)}</p>
+        ${s.code ? `<pre>${esc(s.code)}</pre>` : ""}
+        <ol class="choices">${choices}</ol>
+        ${feedback}
+      </div>
+      ${hasPanel ? `<div class="col">${panel}</div>` : ""}
+    </div>`;
+}
+
+const INTROS = SLIDES.filter(s => s.type === "intro");
+const slideOf = id => SLIDES.findIndex(s => s.type === "intro" && s.id === id);
+const pre = s => `<pre>${esc(s)}</pre>`;
+function renderIntro(s) {
+  const n = INTROS.indexOf(s) + 1;
+  const back = state.back !== undefined && SLIDES[state.back]?.type === "q"
+    ? `<button type="button" class="pill" id="back">Q${QUESTIONS.indexOf(state.back) + 1}に戻る</button>` : "";
+  return `<div class="head"><span class="qno">基礎 ${n} / ${INTROS.length}</span><span class="eyebrow">本を読む前に押さえておくこと</span>${back}</div>
+    <h2>${esc(s.title)}</h2>
+    ${INTRO_BODY[s.id]()}`;
+}
+
+function renderCover() {
+  return `<div class="eyebrow">［改訂新版］SQL実践入門 第${CH.no}章　演習ドリル</div>
+    <h1>${CH.h1}</h1>
+    <p class="lede">${CH.lede()}</p>
+    <p class="lede">最初の${INTROS.length}枚に${CH.no}章の基礎をまとめたので、本を読む前でも解けます。各問題の上にあるボタンから、関連する基礎のスライドを開けます。</p>
+    <div class="cover-grid">
+      <div class="card"><h3>実測の実行計画</h3><p>本書のサンプルデータを使い、PostgreSQL 16とMySQL 8.0で実際にEXPLAINを実行して取得しました。</p></div>
+      <div class="card"><h3>色の意味</h3><p><span style="color:var(--scan);font-weight:700">オレンジ</span>はテーブルを全件読む行、<span style="color:var(--accent);font-weight:700">青</span>はインデックスで探す行です。</p></div>
+      <div class="card"><h3>操作</h3><p>← → でスライド送り、1〜4で回答。回答はこのブラウザにだけ保存されます。</p></div>
+    </div>
+    <div class="row"><button type="button" class="big-btn" id="start">基礎から読む →</button><button type="button" class="pill" id="startQ">問題から解く</button>${Object.keys(state.ans).length ? `<button type="button" class="pill" id="reset">回答をすべてリセット</button>` : ""}</div>
+    <p class="hint"><a href="../">ほかの章を見る</a></p>`;
+}
+
+function renderEnd() {
+  const okCount = QUESTIONS.filter(i => state.ans[i] !== undefined && SLIDES[i].choices[state.ans[i]].ok).length;
+  const recap = QUESTIONS.map((i, n) => {
+    const a = state.ans[i];
+    const r = a === undefined ? ["na", "未回答"] : SLIDES[i].choices[a].ok ? ["ok", "正解"] : ["ng", "不正解"];
+    return `<li><span class="r ${r[0]}">${r[1]}</span><span>Q${n + 1} ${esc(SLIDES[i].title)}</span></li>`;
+  }).join("");
+  return `<div class="head"><span class="eyebrow">第${CH.no}章のまとめ</span></div>
+    <div class="row" style="gap:18px;align-items:flex-end"><span class="score">${okCount} / ${QUESTIONS.length}</span><span class="hint">正解数</span></div>
+    <ul class="recap">${recap}</ul>
+    <ul class="points">${CH.points.map(p => `<li>${p}</li>`).join("")}</ul>
+    <button type="button" class="big-btn" id="reset">回答をリセットして最初から</button>`;
+}
+
+const stage = document.getElementById("stage");
+function render() {
+  const s = SLIDES[state.cur];
+  stage.className = "slide" + (s.type === "cover" ? " cover" : "");
+  stage.innerHTML = s.type === "cover" ? renderCover() : s.type === "q" ? renderQ(s, state.cur) : s.type === "intro" ? renderIntro(s)
+    : s.type === "custom" ? s.render() : renderEnd();
+  document.getElementById("prev").disabled = state.cur === 0;
+  document.getElementById("next").disabled = state.cur === SLIDES.length - 1;
+  document.getElementById("pos").textContent = `${state.cur + 1} / ${SLIDES.length}`;
+  document.getElementById("dots").innerHTML = SLIDES.map((x, i) => {
+    let c = "dot";
+    if (i === state.cur) c += " cur";
+    if (x.type === "q" && state.ans[i] !== undefined) c += x.choices[state.ans[i]].ok ? " ok" : " ng";
+    return `<button type="button" class="${c}" data-go="${i}" aria-label="スライド${i + 1}"></button>`;
+  }).join("");
+  save();
+}
+function go(i) {
+  if (i < 0 || i >= SLIDES.length) return;
+  state.cur = i; stage.scrollTop = 0; render();
+}
+function choose(k) {
+  const i = state.cur, s = SLIDES[i];
+  if (s.type !== "q" || !s.choices[k]) return;
+  const v = view[i] || (view[i] = { tab: "plan", db: s.db || "pg" });
+  if (state.ans[i] === undefined) state.ans[i] = k;
+  v.viewing = k;
+  if (s.choices[k].q) v.q = s.choices[k].q;
+  if (queriesOf(s).length && v.tab === "data") v.tab = "plan";
+  render();
+}
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button");
+  if (!t) return;
+  const v = view[state.cur];
+  if (t.id === "prev") go(state.cur - 1);
+  else if (t.id === "next") go(state.cur + 1);
+  else if (t.id === "start") go(1);
+  else if (t.id === "startQ") go(QUESTIONS[0]);
+  else if (t.dataset.ref) { state.back = state.cur; go(slideOf(t.dataset.ref)); }
+  else if (t.id === "back") { const b = state.back; delete state.back; go(b); }
+  else if (t.id === "retry") { delete state.ans[state.cur]; delete view[state.cur]; render(); }
+  else if (t.id === "reset") { state.ans = {}; CH.onReset?.(); for (const k in view) delete view[k]; go(0); }
+  else if (CH.onClick?.(t)) render();
+  else if (t.dataset.go) go(+t.dataset.go);
+  else if (t.dataset.choice) choose(+t.dataset.choice);
+  else if (t.dataset.tab && v) { v.tab = t.dataset.tab; render(); }
+  else if (t.dataset.q && v) { v.q = t.dataset.q; render(); }
+  else if (t.dataset.db && v) { v.db = t.dataset.db; render(); }
+});
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "ArrowRight") go(state.cur + 1);
+  else if (e.key === "ArrowLeft") go(state.cur - 1);
+  else if (/^[1-4]$/.test(e.key)) choose(+e.key - 1);
+});
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+SELECT *
+  FROM Address
+UNION ALL
+SELECT *
+  FROM Address2

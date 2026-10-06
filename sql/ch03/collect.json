@@ -1,0 +1,6 @@
+{
+  "resg": {
+    "pre": "INSERT INTO ThreeElements VALUES (7, 'g', '2013-11-01', 'F', NULL, NULL, '2013-11-01', 'T');",
+    "queries": ["te_union", "te_or", "te_in", "te_case"]
+  }
+}

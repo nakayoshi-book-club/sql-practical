@@ -1,0 +1,7 @@
+{
+  "cache": {
+    "keys": ["cache1", "cache2"],
+    "sql": "SELECT *\n  FROM Shops",
+    "my": "（MySQLのEXPLAINには、バッファプールから読んだかディスクから読んだかは出ません）"
+  }
+}

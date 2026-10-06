@@ -1,0 +1,3 @@
+SELECT *
+  FROM Shops
+ WHERE shop_id BETWEEN '00010' AND '00020'

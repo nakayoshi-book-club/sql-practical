@@ -1,0 +1,1 @@
+SET work_mem = '16MB';
