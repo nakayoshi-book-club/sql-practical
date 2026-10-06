@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SQL実践入門 3章ドリル</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=M+PLUS+1+Code:wght@400;600&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap">
+<style>
+/* Layout: 1問1枚のスライド。左に問題と選択肢、右に EXPLAIN 出力を読むパネル。下にページ送り */
+:root {
+  --bg: #e8ecf0;
+  --surface: #f7f9fb;
+  --ink: #17202b;
+  --muted: #55606e;
+  --line: #cdd4dc;
+  --code-bg: #eef2f6;
+  --accent: #2448b8;
+  --accent-soft: #dfe6fa;
+  --scan: #b4500c;
+  --scan-soft: #fbe7d8;
+  --ok: #1d7448;
+  --ok-soft: #dcefe4;
+  --ng: #b3261e;
+  --ng-soft: #f8dedb;
+  --f-display: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --f-body: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --f-code: "M PLUS 1 Code", "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10151c; --surface: #18202a; --ink: #e6ebf1; --muted: #9aa6b4; --line: #2c3643; --code-bg: #0d1218;
+    --accent: #85a2ff; --accent-soft: #1f2a4d; --scan: #f39a55; --scan-soft: #3d2615;
+    --ok: #62c891; --ok-soft: #15332a; --ng: #f2827a; --ng-soft: #3d1c1a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10151c; --surface: #18202a; --ink: #e6ebf1; --muted: #9aa6b4; --line: #2c3643; --code-bg: #0d1218;
+  --accent: #85a2ff; --accent-soft: #1f2a4d; --scan: #f39a55; --scan-soft: #3d2615;
+  --ok: #62c891; --ok-soft: #15332a; --ng: #f2827a; --ng-soft: #3d1c1a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.7;
+  padding-inline: 16px; padding-block: 16px 0;
+  display: flex; flex-direction: column;
+}
+.app { flex: 1; display: flex; flex-direction: column; gap: 12px; max-width: 1240px; width: 100%; margin-inline: auto; min-height: 0; }
+.slide {
+  flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: clamp(18px, 3vw, 36px); display: flex; flex-direction: column; gap: 18px; min-height: 0; overflow: auto;
+}
+.head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; color: var(--muted); }
+.qno { font-family: var(--f-code); font-weight: 600; color: var(--accent); font-size: 13px; }
+h1, h2 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.3; }
+h1 { font-size: clamp(30px, 5vw, 52px); font-weight: 900; }
+h2 { font-size: clamp(22px, 3vw, 30px); font-weight: 700; }
+p { margin: 0; }
+.prompt { font-size: 16px; max-width: 62ch; }
+.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 28px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.choices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.choice {
+  width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: var(--bg); border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 14px;
+  display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start;
+  transition: border-color .15s, background .15s;
+}
+.choice:hover { border-color: var(--accent); }
+.choice:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.choice .key { font-family: var(--f-code); font-weight: 600; color: var(--muted); }
+.choice code { font-family: var(--f-code); font-size: 12.5px; white-space: pre; display: block; overflow-x: auto; color: var(--ink); line-height: 1.55; }
+.choice .ctext { min-width: 0; }
+.choice.viewing { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.choice.is-ok { background: var(--ok-soft); border-color: var(--ok); }
+.choice.is-ng { background: var(--ng-soft); border-color: var(--ng); }
+.choice .mark { display: block; font-size: 12px; font-weight: 700; margin-bottom: 2px; }
+.choice.is-ok .mark { color: var(--ok); }
+.choice.is-ng .mark { color: var(--ng); }
+
+.feedback { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.verdict { font-family: var(--f-display); font-weight: 900; font-size: 20px; }
+.verdict.ok { color: var(--ok); }
+.verdict.ng { color: var(--ng); }
+.takeaway { background: var(--accent-soft); border-radius: 6px; padding: 10px 14px; font-size: 14px; }
+.takeaway b { color: var(--accent); }
+.hint { color: var(--muted); font-size: 13px; }
+
+.panel { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); min-width: 0; display: flex; flex-direction: column; }
+.tabs { display: flex; gap: 2px; padding: 6px 6px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tab { font: inherit; font-size: 13px; padding: 6px 14px; border: none; background: none; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+.tab[aria-selected="true"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--accent); }
+.tab:disabled { opacity: .45; cursor: not-allowed; }
+.pbody { padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pill { font: inherit; font-size: 12.5px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 3px 12px; cursor: pointer; }
+.pill[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: inherit; font-size: 12.5px; border: none; background: var(--surface); color: var(--muted); padding: 4px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.chip { font-size: 12.5px; font-weight: 700; padding: 2px 10px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.chip.full { background: var(--scan-soft); color: var(--scan); }
+.chip.idx { background: var(--accent-soft); color: var(--accent); }
+.chip.pages { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+.chip.err { background: var(--ng-soft); color: var(--ng); }
+.label { font-size: 11.5px; letter-spacing: .08em; color: var(--muted); }
+pre {
+  margin: 0; font-family: var(--f-code); font-size: 12.5px; line-height: 1.6; background: var(--code-bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; overflow-x: auto; color: var(--ink);
+}
+pre .l { display: block; }
+pre .full { background: var(--scan-soft); color: var(--scan); font-weight: 600; }
+pre .idx { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+pre .dim { color: var(--muted); }
+pre .err { color: var(--ng); }
+pre .new { animation: grow .6s ease-out; }
+@keyframes grow { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+
+.tbl-wrap { overflow: auto; max-height: 340px; border: 1px solid var(--line); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+th, td { padding: 4px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+th { position: sticky; top: 0; background: var(--surface); font-family: var(--f-code); font-weight: 600; font-size: 12px; }
+td.num { text-align: right; }
+td.null { color: var(--muted); font-style: italic; }
+tr.mark td { background: var(--scan-soft); }
+
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.legend .lf::before { background: var(--scan); }
+.legend .li::before { background: var(--accent); }
+
+.cover { justify-content: center; gap: 26px; }
+.cover .lede { font-size: 17px; max-width: 60ch; color: var(--muted); }
+.cover-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
+.card h3 { margin: 0; font-family: var(--f-display); font-size: 16px; }
+.card p { font-size: 13.5px; color: var(--muted); }
+.big-btn { font: inherit; font-weight: 700; align-self: flex-start; background: var(--ink); color: var(--surface); border: none; border-radius: 8px; padding: 10px 22px; cursor: pointer; }
+
+.steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 760px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+.lane { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lane h3 { margin: 0; font-family: var(--f-display); font-size: 17px; }
+.step { border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; background: var(--bg); display: grid; gap: 2px; transition: opacity .25s, border-color .25s; }
+.step code { font-family: var(--f-code); font-size: 12.5px; overflow-x: auto; white-space: pre; display: block; }
+.step .out { font-size: 13.5px; font-weight: 700; }
+.step.pending { opacity: .3; }
+.step.pending .out { visibility: hidden; }
+.step.now { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.step.skip { opacity: .45; border-style: dashed; }
+.step .t { color: var(--ok); } .step .f { color: var(--ng); } .step .n { color: var(--muted); }
+
+.score { font-family: var(--f-display); font-weight: 900; font-size: clamp(44px, 8vw, 80px); line-height: 1; font-variant-numeric: tabular-nums; }
+.recap { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 18px; }
+.recap li { display: flex; gap: 10px; font-size: 14px; }
+.recap .r { font-weight: 700; width: 4.5em; flex: none; }
+.recap .r.ok { color: var(--ok); } .recap .r.ng { color: var(--ng); } .recap .r.na { color: var(--muted); }
+.points { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; max-width: 70ch; }
+
+.nav { display: flex; align-items: center; gap: 12px; padding-block: 4px calc(12px + env(safe-area-inset-bottom, 0px)); }
+.nav button.arrow { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 6px 14px; cursor: pointer; flex: none; }
+.nav button.arrow:disabled { opacity: .4; cursor: default; }
+.dots { flex: 1; display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
+.dot { width: 22px; height: 6px; border-radius: 3px; border: none; background: var(--line); cursor: pointer; padding: 0; }
+.dot.cur { background: var(--ink); }
+.dot.ok { background: var(--ok); }
+.dot.ng { background: var(--ng); }
+.dot.cur.ok, .dot.cur.ng { outline: 2px solid var(--ink); outline-offset: 1px; }
+.pos { font-family: var(--f-code); font-size: 12px; color: var(--muted); min-width: 4.5em; text-align: right; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <main class="slide" id="stage" aria-live="polite"></main>
+  <nav class="nav" aria-label="スライド送り">
+    <button class="arrow" id="prev" type="button">← 前へ</button>
+    <div class="dots" id="dots"></div>
+    <span class="pos" id="pos"></span>
+    <button class="arrow" id="next" type="button">次へ →</button>
+  </nav>
+</div>
+
+<script>
+const D = {"cc_count0": {"sql": "SELECT COUNT(CASE WHEN dow = 'Mon' THEN customers ELSE 0 END) AS mon,\n       COUNT(CASE WHEN dow = 'Tue' THEN customers ELSE 0 END) AS tue,\n       COUNT(CASE WHEN dow = 'Sat' THEN customers ELSE 0 END) AS sat,\n       COUNT(CASE WHEN dow = 'Sun' THEN customers ELSE 0 END) AS sun\n  FROM CustomerCount", "pg": " Aggregate (actual rows=1 loops=1)\n   Buffers: shared hit=1\n   ->  Seq Scan on customercount (actual rows=14 loops=1)\n         Buffers: shared hit=1", "my": "-> Count rows in CustomerCount", "res": " mon | tue | sat | sun \n-----+-----+-----+-----\n  14 |  14 |  14 |  14"}, "cc_sum0": {"sql": "SELECT SUM(CASE WHEN dow = 'Mon' THEN customers ELSE 0 END) AS mon,\n       SUM(CASE WHEN dow = 'Tue' THEN customers ELSE 0 END) AS tue,\n       SUM(CASE WHEN dow = 'Sat' THEN customers ELSE 0 END) AS sat,\n       SUM(CASE WHEN dow = 'Sun' THEN customers ELSE 0 END) AS sun\n  FROM CustomerCount", "pg": " Aggregate (actual rows=1 loops=1)\n   Buffers: shared hit=1\n   ->  Seq Scan on customercount (actual rows=14 loops=1)\n         Buffers: shared hit=1", "my": "-> Aggregate: sum((case when (CustomerCount.dow = 'Mon') then CustomerCount.customers else 0 end)), sum((case when (CustomerCount.dow = 'Tue') then CustomerCount.customers else 0 end)), sum((case when (CustomerCount.dow = 'Sat') then CustomerCount.customers else 0 end)), sum((case when (CustomerCount.dow = 'Sun') then CustomerCount.customers else 0 end))  (cost=3.05 rows=1)\n    -> Table scan on CustomerCount  (cost=1.65 rows=14)", "res": " mon | tue | sat | sun \n-----+-----+-----+-----\n 588 | 762 | 708 | 761"}, "cc_sumnull": {"sql": "SELECT SUM(CASE WHEN dow = 'Mon' THEN customers END) AS mon,\n       SUM(CASE WHEN dow = 'Tue' THEN customers END) AS tue,\n       SUM(CASE WHEN dow = 'Sat' THEN customers END) AS sat,\n       SUM(CASE WHEN dow = 'Sun' THEN customers END) AS sun\n  FROM CustomerCount", "pg": " Aggregate (actual rows=1 loops=1)\n   Buffers: shared hit=1\n   ->  Seq Scan on customercount (actual rows=14 loops=1)\n         Buffers: shared hit=1", "my": "-> Aggregate: sum((case when (CustomerCount.dow = 'Mon') then CustomerCount.customers end)), sum((case when (CustomerCount.dow = 'Tue') then CustomerCount.customers end)), sum((case when (CustomerCount.dow = 'Sat') then CustomerCount.customers end)), sum((case when (CustomerCount.dow = 'Sun') then CustomerCount.customers end))  (cost=3.05 rows=1)\n    -> Table scan on CustomerCount  (cost=1.65 rows=14)", "res": " mon | tue | sat | sun \n-----+-----+-----+-----\n 588 | 762 | 708 | 761"}, "cc_where": {"sql": "SELECT dow, SUM(customers) AS customers\n  FROM CustomerCount\n WHERE dow IN ('Mon', 'Tue', 'Sat', 'Sun')\n GROUP BY dow", "pg": " HashAggregate (actual rows=4 loops=1)\n   Group Key: dow\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=1\n   ->  Seq Scan on customercount (actual rows=8 loops=1)\n         Filter: (dow = ANY ('{Mon,Tue,Sat,Sun}'::bpchar[]))\n         Rows Removed by Filter: 6\n         Buffers: shared hit=1", "my": "-> Table scan on <temporary>\n    -> Aggregate using temporary table\n        -> Filter: (CustomerCount.dow in ('Mon','Tue','Sat','Sun'))  (cost=1.65 rows=5.6)\n            -> Table scan on CustomerCount  (cost=1.65 rows=14)", "res": " dow | customers \n-----+-----------\n Sun |       761\n Sat |       708\n Tue |       762\n Mon |       588"}, "emp_case": {"sql": "SELECT emp_name,\n       CASE WHEN COUNT(*) = 1  THEN MAX(team)\n            WHEN COUNT(*) = 2  THEN '2つを兼務'\n            WHEN COUNT(*) >= 3 THEN '3つ以上を兼務'\n        END AS team\n  FROM Employees\n GROUP BY emp_name", "pg": " HashAggregate (actual rows=5 loops=1)\n   Group Key: emp_name\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=1\n   ->  Seq Scan on employees (actual rows=11 loops=1)\n         Buffers: shared hit=1", "my": "-> Table scan on <temporary>\n    -> Aggregate using temporary table\n        -> Table scan on Employees  (cost=1.35 rows=11)", "res": " emp_name |     team      \n----------+---------------\n Jim      | 開発\n Kim      | 2つを兼務\n Carl     | 営業\n Joe      | 3つ以上を兼務\n Bree     | 3つ以上を兼務"}, "emp_case_team": {"sql": "SELECT emp_name,\n       CASE WHEN COUNT(*) = 1  THEN team\n            WHEN COUNT(*) = 2  THEN '2つを兼務'\n            WHEN COUNT(*) >= 3 THEN '3つ以上を兼務'\n        END AS team\n  FROM Employees\n GROUP BY emp_name", "pg": "ERROR:  column \"employees.team\" must appear in the GROUP BY clause or be used in an aggregate function\nLINE 2:        CASE WHEN COUNT(*) = 1  THEN team\n                                            ^", "my": "ERROR 1055 (42000) at line 1: Expression #2 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'quiz.Employees.team' which is not functionally dependent on columns in GROUP BY clause; this is incompatible with sql_mode=only_full_group_by", "res": "ERROR:  column \"employees.team\" must appear in the GROUP BY clause or be used in an aggregate function\nLINE 2:        CASE WHEN COUNT(*) = 1  THEN team\n                                            ^"}, "emp_union": {"sql": "SELECT emp_name, MAX(team) AS team\n  FROM Employees\n GROUP BY emp_name\nHAVING COUNT(*) = 1\nUNION\nSELECT emp_name, '2つを兼務' AS team\n  FROM Employees\n GROUP BY emp_name\nHAVING COUNT(*) = 2\nUNION\nSELECT emp_name, '3つ以上を兼務' AS team\n  FROM Employees\n GROUP BY emp_name\nHAVING COUNT(*) >= 3", "pg": " HashAggregate (actual rows=5 loops=1)\n   Group Key: employees.emp_name, (max((employees.team)::text))\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=3\n   ->  Append (actual rows=5 loops=1)\n         Buffers: shared hit=3\n         ->  HashAggregate (actual rows=2 loops=1)\n               Group Key: employees.emp_name\n               Filter: (count(*) = 1)\n               Batches: 1  Memory Usage: 24kB\n               Rows Removed by Filter: 3\n               Buffers: shared hit=1\n               ->  Seq Scan on employees (actual rows=11 loops=1)\n                     Buffers: shared hit=1\n         ->  HashAggregate (actual rows=1 loops=1)\n               Group Key: employees_1.emp_name\n               Filter: (count(*) = 2)\n               Batches: 1  Memory Usage: 24kB\n               Rows Removed by Filter: 4\n               Buffers: shared hit=1\n               ->  Seq Scan on employees employees_1 (actual rows=11 loops=1)\n                     Buffers: shared hit=1\n         ->  HashAggregate (actual rows=2 loops=1)\n               Group Key: employees_2.emp_name\n               Filter: (count(*) >= 3)\n               Batches: 1  Memory Usage: 24kB\n               Rows Removed by Filter: 3\n               Buffers: shared hit=1\n               ->  Seq Scan on employees employees_2 (actual rows=11 loops=1)\n                     Buffers: shared hit=1", "my": "-> Table scan on <union temporary>  (cost=2.5..2.5 rows=0)\n    -> Union materialize with deduplication  (cost=0..0 rows=0)\n        -> Filter: (count(0) = 1)\n            -> Table scan on <temporary>\n                -> Aggregate using temporary table\n                    -> Table scan on Employees  (cost=1.35 rows=11)\n        -> Filter: (count(0) = 2)\n            -> Table scan on <temporary>\n                -> Aggregate using temporary table\n                    -> Table scan on Employees  (cost=1.35 rows=11)\n        -> Filter: (count(0) >= 3)\n            -> Table scan on <temporary>\n                -> Aggregate using temporary table\n                    -> Table scan on Employees  (cost=1.35 rows=11)", "res": " emp_name |     team      \n----------+---------------\n Joe      | 3つ以上を兼務\n Carl     | 営業\n Kim      | 2つを兼務\n Jim      | 開発\n Bree     | 3つ以上を兼務"}, "emp_where": {"sql": "SELECT emp_name,\n       CASE WHEN COUNT(*) = 1  THEN MAX(team)\n            WHEN COUNT(*) = 2  THEN '2つを兼務'\n            WHEN COUNT(*) >= 3 THEN '3つ以上を兼務'\n        END AS team\n  FROM Employees\n WHERE COUNT(*) >= 1\n GROUP BY emp_name", "pg": "ERROR:  aggregate functions are not allowed in WHERE\nLINE 7:  WHERE COUNT(*) >= 1\n               ^", "my": "ERROR 1111 (HY000) at line 1: Invalid use of group function", "res": "ERROR:  aggregate functions are not allowed in WHERE\nLINE 7:  WHERE COUNT(*) >= 1\n               ^"}, "items_case": {"sql": "SELECT item_name, year,\n       CASE WHEN year <= 2001 THEN price_tax_ex\n            WHEN year >= 2002 THEN price_tax_in END AS price\n  FROM Items", "pg": " Seq Scan on items (actual rows=12 loops=1)\n   Buffers: shared hit=1", "my": "-> Table scan on Items  (cost=1.45 rows=12)", "res": " item_name | year | price \n-----------+------+-------\n カップ    | 2000 |   500\n カップ    | 2001 |   520\n カップ    | 2002 |   630\n カップ    | 2003 |   630\n スプーン  | 2000 |   500\n スプーン  | 2001 |   500\n スプーン  | 2002 |   525\n スプーン  | 2003 |   525\n ナイフ    | 2000 |   600\n ナイフ    | 2001 |   550\n ナイフ    | 2002 |   577\n ナイフ    | 2003 |   420"}, "items_union": {"sql": "SELECT item_name, year, price_tax_ex AS price\n  FROM Items\n WHERE year <= 2001\nUNION\nSELECT item_name, year, price_tax_in AS price\n  FROM Items\n WHERE year >= 2002", "pg": " HashAggregate (actual rows=12 loops=1)\n   Group Key: items.item_name, items.year, items.price_tax_ex\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=2\n   ->  Append (actual rows=12 loops=1)\n         Buffers: shared hit=2\n         ->  Seq Scan on items (actual rows=6 loops=1)\n               Filter: (year <= 2001)\n               Rows Removed by Filter: 6\n               Buffers: shared hit=1\n         ->  Seq Scan on items items_1 (actual rows=6 loops=1)\n               Filter: (year >= 2002)\n               Rows Removed by Filter: 6\n               Buffers: shared hit=1", "my": "-> Table scan on <union temporary>  (cost=4.02..6.29 rows=8)\n    -> Union materialize with deduplication  (cost=3.7..3.7 rows=8)\n        -> Filter: (Items.`year` <= 2001)  (cost=1.45 rows=4)\n            -> Table scan on Items  (cost=1.45 rows=12)\n        -> Filter: (Items.`year` >= 2002)  (cost=1.45 rows=4)\n            -> Table scan on Items  (cost=1.45 rows=12)", "res": " item_name | year | price \n-----------+------+-------\n スプーン  | 2002 |   525\n ナイフ    | 2003 |   420\n ナイフ    | 2000 |   600\n スプーン  | 2000 |   500\n カップ    | 2003 |   630\n スプーン  | 2003 |   525\n ナイフ    | 2001 |   550\n カップ    | 2002 |   630\n スプーン  | 2001 |   500\n カップ    | 2000 |   500\n ナイフ    | 2002 |   577\n カップ    | 2001 |   520"}, "items_union_all": {"sql": "SELECT item_name, year, price_tax_ex AS price\n  FROM Items\n WHERE year <= 2001\nUNION ALL\nSELECT item_name, year, price_tax_in AS price\n  FROM Items\n WHERE year >= 2002", "pg": " Append (actual rows=12 loops=1)\n   Buffers: shared hit=2\n   ->  Seq Scan on items (actual rows=6 loops=1)\n         Filter: (year <= 2001)\n         Rows Removed by Filter: 6\n         Buffers: shared hit=1\n   ->  Seq Scan on items items_1 (actual rows=6 loops=1)\n         Filter: (year >= 2002)\n         Rows Removed by Filter: 6\n         Buffers: shared hit=1", "my": "-> Append  (cost=2.9 rows=8)\n    -> Stream results  (cost=1.45 rows=4)\n        -> Filter: (Items.`year` <= 2001)  (cost=1.45 rows=4)\n            -> Table scan on Items  (cost=1.45 rows=12)\n    -> Stream results  (cost=1.45 rows=4)\n        -> Filter: (Items.`year` >= 2002)  (cost=1.45 rows=4)\n            -> Table scan on Items  (cost=1.45 rows=12)", "res": " item_name | year | price \n-----------+------+-------\n カップ    | 2000 |   500\n カップ    | 2001 |   520\n スプーン  | 2000 |   500\n スプーン  | 2001 |   500\n ナイフ    | 2000 |   600\n ナイフ    | 2001 |   550\n カップ    | 2002 |   630\n カップ    | 2003 |   630\n スプーン  | 2002 |   525\n スプーン  | 2003 |   525\n ナイフ    | 2002 |   577\n ナイフ    | 2003 |   420"}, "items_where": {"sql": "SELECT item_name, year, price_tax_ex AS price\n  FROM Items\n WHERE year <= 2001 OR year >= 2002", "pg": " Seq Scan on items (actual rows=12 loops=1)\n   Filter: ((year <= 2001) OR (year >= 2002))\n   Buffers: shared hit=1", "my": "-> Filter: ((Items.`year` <= 2001) or (Items.`year` >= 2002))  (cost=1.45 rows=6.67)\n    -> Table scan on Items  (cost=1.45 rows=12)", "res": " item_name | year | price \n-----------+------+-------\n カップ    | 2000 |   500\n カップ    | 2001 |   520\n カップ    | 2002 |   600\n カップ    | 2003 |   600\n スプーン  | 2000 |   500\n スプーン  | 2001 |   500\n スプーン  | 2002 |   500\n スプーン  | 2003 |   500\n ナイフ    | 2000 |   600\n ナイフ    | 2001 |   550\n ナイフ    | 2002 |   550\n ナイフ    | 2003 |   400"}, "pop_case": {"sql": "SELECT prefecture,\n       SUM(CASE WHEN sex = '1' THEN pop ELSE 0 END) AS pop_men,\n       SUM(CASE WHEN sex = '2' THEN pop ELSE 0 END) AS pop_wom\n  FROM Population\n GROUP BY prefecture", "pg": " HashAggregate (actual rows=5 loops=1)\n   Group Key: prefecture\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=1\n   ->  Seq Scan on population (actual rows=10 loops=1)\n         Buffers: shared hit=1", "my": "-> Group aggregate: sum((case when (Population.sex = '1') then Population.pop else 0 end)), sum((case when (Population.sex = '2') then Population.pop else 0 end))  (cost=2.25 rows=3.16)\n    -> Index scan on Population using PRIMARY  (cost=1.25 rows=10)", "res": " prefecture | pop_men | pop_wom \n------------+---------+---------\n 愛媛       |     100 |      50\n 高知       |     100 |     100\n 福岡       |      20 |     200\n 香川       |      90 |     100\n 徳島       |      60 |      40"}, "pop_join": {"sql": "SELECT M.prefecture, M.pop AS pop_men, W.pop AS pop_wom\n  FROM Population M\n  JOIN Population W\n    ON M.prefecture = W.prefecture\n WHERE M.sex = '1'\n   AND W.sex = '2'", "pg": " Hash Join (actual rows=5 loops=1)\n   Hash Cond: ((m.prefecture)::text = (w.prefecture)::text)\n   Buffers: shared hit=2\n   ->  Seq Scan on population m (actual rows=5 loops=1)\n         Filter: (sex = '1'::bpchar)\n         Rows Removed by Filter: 5\n         Buffers: shared hit=1\n   ->  Hash (actual rows=5 loops=1)\n         Buckets: 1024  Batches: 1  Memory Usage: 9kB\n         Buffers: shared hit=1\n         ->  Seq Scan on population w (actual rows=5 loops=1)\n               Filter: (sex = '2'::bpchar)\n               Rows Removed by Filter: 5\n               Buffers: shared hit=1", "my": "-> Nested loop inner join  (cost=1.6 rows=1)\n    -> Filter: (M.sex = '1')  (cost=1.25 rows=1)\n        -> Table scan on M  (cost=1.25 rows=10)\n    -> Filter: (W.sex = '2')  (cost=0.35 rows=1)\n        -> Single-row index lookup on W using PRIMARY (prefecture=M.prefecture, sex='2')  (cost=0.35 rows=1)", "res": " prefecture | pop_men | pop_wom \n------------+---------+---------\n 徳島       |      60 |      40\n 香川       |      90 |     100\n 愛媛       |     100 |      50\n 高知       |     100 |     100\n 福岡       |      20 |     200"}, "pop_union": {"sql": "SELECT prefecture, SUM(pop_men) AS pop_men, SUM(pop_wom) AS pop_wom\n  FROM (SELECT prefecture, pop AS pop_men, NULL AS pop_wom\n          FROM Population\n         WHERE sex = '1'\n        UNION\n        SELECT prefecture, NULL AS pop_men, pop AS pop_wom\n          FROM Population\n         WHERE sex = '2') TMP\n GROUP BY prefecture", "pg": " HashAggregate (actual rows=5 loops=1)\n   Group Key: population.prefecture\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=2\n   ->  HashAggregate (actual rows=10 loops=1)\n         Group Key: population.prefecture, population.pop, (NULL::integer)\n         Batches: 1  Memory Usage: 24kB\n         Buffers: shared hit=2\n         ->  Append (actual rows=10 loops=1)\n               Buffers: shared hit=2\n               ->  Seq Scan on population (actual rows=5 loops=1)\n                     Filter: (sex = '1'::bpchar)\n                     Rows Removed by Filter: 5\n                     Buffers: shared hit=1\n               ->  Seq Scan on population population_1 (actual rows=5 loops=1)\n                     Filter: (sex = '2'::bpchar)\n                     Rows Removed by Filter: 5\n                     Buffers: shared hit=1", "my": "-> Table scan on <temporary>\n    -> Aggregate using temporary table\n        -> Table scan on TMP  (cost=3.96..5.23 rows=2)\n            -> Union materialize with deduplication  (cost=2.7..2.7 rows=2)\n                -> Filter: (Population.sex = '1')  (cost=1.25 rows=1)\n                    -> Table scan on Population  (cost=1.25 rows=10)\n                -> Filter: (Population.sex = '2')  (cost=1.25 rows=1)\n                    -> Table scan on Population  (cost=1.25 rows=10)", "res": " prefecture | pop_men | pop_wom \n------------+---------+---------\n 高知       |     100 |     100\n 徳島       |      60 |      40\n 愛媛       |     100 |      50\n 福岡       |      20 |     200\n 香川       |      90 |     100"}, "te_case": {"sql": "SELECT key_col, name,\n       date_1, flg_1,\n       date_2, flg_2,\n       date_3, flg_3\n  FROM ThreeElements\n WHERE CASE WHEN date_1 = '2013-11-01' THEN flg_1\n            WHEN date_2 = '2013-11-01' THEN flg_2\n            WHEN date_3 = '2013-11-01' THEN flg_3\n            ELSE NULL END = 'T'", "pg": " Seq Scan on threeelements (actual rows=3 loops=1)\n   Filter: (CASE WHEN (date_1 = '2013-11-01'::date) THEN flg_1 WHEN (date_2 = '2013-11-01'::date) THEN flg_2 WHEN (date_3 = '2013-11-01'::date) THEN flg_3 ELSE NULL::bpchar END = 'T'::bpchar)\n   Rows Removed by Filter: 300003\n   Buffers: shared hit=1622", "my": "-> Filter: ((case when (ThreeElements.date_1 = DATE'2013-11-01') then ThreeElements.flg_1 when (ThreeElements.date_2 = DATE'2013-11-01') then ThreeElements.flg_2 when (ThreeElements.date_3 = DATE'2013-11-01') then ThreeElements.flg_3 else NULL end) = 'T')  (cost=30133 rows=299808)\n    -> Table scan on ThreeElements  (cost=30133 rows=299808)", "res": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       1 | a    | 2013-11-01 | T     |            |       |            | \n       2 | b    |            |       | 2013-11-01 | T     |            | \n       5 | e    |            |       |            |       | 2013-11-01 | T", "resg": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       1 | a    | 2013-11-01 | T     |            |       |            | \n       2 | b    |            |       | 2013-11-01 | T     |            | \n       5 | e    |            |       |            |       | 2013-11-01 | T"}, "te_in": {"sql": "SELECT key_col, name,\n       date_1, flg_1,\n       date_2, flg_2,\n       date_3, flg_3\n  FROM ThreeElements\n WHERE ('2013-11-01', 'T')\n       IN ((date_1, flg_1),\n           (date_2, flg_2),\n           (date_3, flg_3))", "pg": " Bitmap Heap Scan on threeelements (actual rows=3 loops=1)\n   Recheck Cond: ((('2013-11-01'::date = date_1) AND ('T'::bpchar = flg_1)) OR (('2013-11-01'::date = date_2) AND ('T'::bpchar = flg_2)) OR (('2013-11-01'::date = date_3) AND ('T'::bpchar = flg_3)))\n   Heap Blocks: exact=1\n   Buffers: shared hit=7\n   ->  BitmapOr (actual rows=0 loops=1)\n         Buffers: shared hit=6\n         ->  Bitmap Index Scan on idx_1 (actual rows=1 loops=1)\n               Index Cond: ((date_1 = '2013-11-01'::date) AND (flg_1 = 'T'::bpchar))\n               Buffers: shared hit=2\n         ->  Bitmap Index Scan on idx_2 (actual rows=1 loops=1)\n               Index Cond: ((date_2 = '2013-11-01'::date) AND (flg_2 = 'T'::bpchar))\n               Buffers: shared hit=2\n         ->  Bitmap Index Scan on idx_3 (actual rows=1 loops=1)\n               Index Cond: ((date_3 = '2013-11-01'::date) AND (flg_3 = 'T'::bpchar))\n               Buffers: shared hit=2", "my": "-> Filter: (('2013-11-01','T') in ((ThreeElements.date_1,ThreeElements.flg_1),(ThreeElements.date_2,ThreeElements.flg_2),(ThreeElements.date_3,ThreeElements.flg_3)))  (cost=30133 rows=299808)\n    -> Table scan on ThreeElements  (cost=30133 rows=299808)", "res": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       1 | a    | 2013-11-01 | T     |            |       |            | \n       2 | b    |            |       | 2013-11-01 | T     |            | \n       5 | e    |            |       |            |       | 2013-11-01 | T", "resg": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       1 | a    | 2013-11-01 | T     |            |       |            | \n       2 | b    |            |       | 2013-11-01 | T     |            | \n       5 | e    |            |       |            |       | 2013-11-01 | T\n       7 | g    | 2013-11-01 | F     |            |       | 2013-11-01 | T"}, "te_or": {"sql": "SELECT key_col, name,\n       date_1, flg_1,\n       date_2, flg_2,\n       date_3, flg_3\n  FROM ThreeElements\n WHERE (date_1 = '2013-11-01' AND flg_1 = 'T')\n    OR (date_2 = '2013-11-01' AND flg_2 = 'T')\n    OR (date_3 = '2013-11-01' AND flg_3 = 'T')", "pg": " Bitmap Heap Scan on threeelements (actual rows=3 loops=1)\n   Recheck Cond: (((date_1 = '2013-11-01'::date) AND (flg_1 = 'T'::bpchar)) OR ((date_2 = '2013-11-01'::date) AND (flg_2 = 'T'::bpchar)) OR ((date_3 = '2013-11-01'::date) AND (flg_3 = 'T'::bpchar)))\n   Heap Blocks: exact=1\n   Buffers: shared hit=7\n   ->  BitmapOr (actual rows=0 loops=1)\n         Buffers: shared hit=6\n         ->  Bitmap Index Scan on idx_1 (actual rows=1 loops=1)\n               Index Cond: ((date_1 = '2013-11-01'::date) AND (flg_1 = 'T'::bpchar))\n               Buffers: shared hit=2\n         ->  Bitmap Index Scan on idx_2 (actual rows=1 loops=1)\n               Index Cond: ((date_2 = '2013-11-01'::date) AND (flg_2 = 'T'::bpchar))\n               Buffers: shared hit=2\n         ->  Bitmap Index Scan on idx_3 (actual rows=1 loops=1)\n               Index Cond: ((date_3 = '2013-11-01'::date) AND (flg_3 = 'T'::bpchar))\n               Buffers: shared hit=2", "my": "-> Filter: (((ThreeElements.flg_1 = 'T') and (ThreeElements.date_1 = DATE'2013-11-01')) or ((ThreeElements.flg_2 = 'T') and (ThreeElements.date_2 = DATE'2013-11-01')) or ((ThreeElements.flg_3 = 'T') and (ThreeElements.date_3 = DATE'2013-11-01')))  (cost=2.37 rows=3)\n    -> Deduplicate rows sorted by row ID  (cost=2.37 rows=3)\n        -> Index range scan on ThreeElements using IDX_1 over (date_1 = '2013-11-01' AND flg_1 = 'T')  (cost=0.36 rows=1)\n        -> Index range scan on ThreeElements using IDX_2 over (date_2 = '2013-11-01' AND flg_2 = 'T')  (cost=0.36 rows=1)\n        -> Index range scan on ThreeElements using IDX_3 over (date_3 = '2013-11-01' AND flg_3 = 'T')  (cost=0.36 rows=1)", "res": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       1 | a    | 2013-11-01 | T     |            |       |            | \n       2 | b    |            |       | 2013-11-01 | T     |            | \n       5 | e    |            |       |            |       | 2013-11-01 | T", "resg": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       1 | a    | 2013-11-01 | T     |            |       |            | \n       2 | b    |            |       | 2013-11-01 | T     |            | \n       5 | e    |            |       |            |       | 2013-11-01 | T\n       7 | g    | 2013-11-01 | F     |            |       | 2013-11-01 | T"}, "te_union": {"sql": "SELECT key_col, name,\n       date_1, flg_1,\n       date_2, flg_2,\n       date_3, flg_3\n  FROM ThreeElements\n WHERE date_1 = '2013-11-01'\n   AND flg_1 = 'T'\nUNION\nSELECT key_col, name,\n       date_1, flg_1,\n       date_2, flg_2,\n       date_3, flg_3\n  FROM ThreeElements\n WHERE date_2 = '2013-11-01'\n   AND flg_2 = 'T'\nUNION\nSELECT key_col, name,\n       date_1, flg_1,\n       date_2, flg_2,\n       date_3, flg_3\n  FROM ThreeElements\n WHERE date_3 = '2013-11-01'\n   AND flg_3 = 'T'", "pg": " HashAggregate (actual rows=3 loops=1)\n   Group Key: threeelements.key_col, threeelements.name, threeelements.date_1, threeelements.flg_1, threeelements.date_2, threeelements.flg_2, threeelements.date_3, threeelements.flg_3\n   Batches: 1  Memory Usage: 32kB\n   Buffers: shared hit=9\n   ->  Append (actual rows=3 loops=1)\n         Buffers: shared hit=9\n         ->  Bitmap Heap Scan on threeelements (actual rows=1 loops=1)\n               Recheck Cond: ((date_1 = '2013-11-01'::date) AND (flg_1 = 'T'::bpchar))\n               Heap Blocks: exact=1\n               Buffers: shared hit=3\n               ->  Bitmap Index Scan on idx_1 (actual rows=1 loops=1)\n                     Index Cond: ((date_1 = '2013-11-01'::date) AND (flg_1 = 'T'::bpchar))\n                     Buffers: shared hit=2\n         ->  Bitmap Heap Scan on threeelements threeelements_1 (actual rows=1 loops=1)\n               Recheck Cond: ((date_2 = '2013-11-01'::date) AND (flg_2 = 'T'::bpchar))\n               Heap Blocks: exact=1\n               Buffers: shared hit=3\n               ->  Bitmap Index Scan on idx_2 (actual rows=1 loops=1)\n                     Index Cond: ((date_2 = '2013-11-01'::date) AND (flg_2 = 'T'::bpchar))\n                     Buffers: shared hit=2\n         ->  Bitmap Heap Scan on threeelements threeelements_2 (actual rows=1 loops=1)\n               Recheck Cond: ((date_3 = '2013-11-01'::date) AND (flg_3 = 'T'::bpchar))\n               Heap Blocks: exact=1\n               Buffers: shared hit=3\n               ->  Bitmap Index Scan on idx_3 (actual rows=1 loops=1)\n                     Index Cond: ((date_3 = '2013-11-01'::date) AND (flg_3 = 'T'::bpchar))\n                     Buffers: shared hit=2", "my": "-> Table scan on <union temporary>  (cost=2.2..3.89 rows=3)\n    -> Union materialize with deduplication  (cost=1.35..1.35 rows=3)\n        -> Index lookup on ThreeElements using IDX_1 (date_1=DATE'2013-11-01', flg_1='T'), with index condition: (ThreeElements.flg_1 = 'T')  (cost=0.35 rows=1)\n        -> Index lookup on ThreeElements using IDX_2 (date_2=DATE'2013-11-01', flg_2='T'), with index condition: (ThreeElements.flg_2 = 'T')  (cost=0.35 rows=1)\n        -> Index lookup on ThreeElements using IDX_3 (date_3=DATE'2013-11-01', flg_3='T'), with index condition: (ThreeElements.flg_3 = 'T')  (cost=0.35 rows=1)", "res": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       5 | e    |            |       |            |       | 2013-11-01 | T\n       2 | b    |            |       | 2013-11-01 | T     |            | \n       1 | a    | 2013-11-01 | T     |            |       |            |", "resg": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       7 | g    | 2013-11-01 | F     |            |       | 2013-11-01 | T\n       5 | e    |            |       |            |       | 2013-11-01 | T\n       2 | b    |            |       | 2013-11-01 | T     |            | \n       1 | a    | 2013-11-01 | T     |            |       |            |"}};
+
+const T = {
+  items: { name: "Items（商品）", cols: ["item_id", "year", "item_name", "price_tax_ex", "price_tax_in"], rows: [
+    [100,2000,"カップ",500,525],[100,2001,"カップ",520,546],[100,2002,"カップ",600,630],[100,2003,"カップ",600,630],
+    [101,2000,"スプーン",500,525],[101,2001,"スプーン",500,525],[101,2002,"スプーン",500,525],[101,2003,"スプーン",500,525],
+    [102,2000,"ナイフ",600,630],[102,2001,"ナイフ",550,577],[102,2002,"ナイフ",550,577],[102,2003,"ナイフ",400,420]] },
+  population: { name: "Population（人口）", cols: ["prefecture", "sex", "pop"], rows: [
+    ["徳島","1",60],["徳島","2",40],["香川","1",90],["香川","2",100],["愛媛","1",100],
+    ["愛媛","2",50],["高知","1",100],["高知","2",100],["福岡","1",20],["福岡","2",200]] },
+  customers: { name: "CustomerCount（来客数）", cols: ["record_date", "dow", "customers"], rows: [
+    ["2024-11-12","Mon",212],["2024-11-13","Tue",540],["2024-11-14","Wed",145],["2024-11-15","Thr",321],
+    ["2024-11-16","Fri",670],["2024-11-17","Sat",518],["2024-11-18","Sun",420],["2024-11-19","Mon",376],
+    ["2024-11-20","Tue",222],["2024-11-21","Wed",518],["2024-11-22","Thr",842],["2024-11-23","Fri",632],
+    ["2024-11-24","Sat",190],["2024-11-25","Sun",341]] },
+  employees: { name: "Employees（社員）", cols: ["emp_id", "team_id", "emp_name", "team"], rows: [
+    [201,1,"Joe","商品企画"],[201,2,"Joe","開発"],[201,3,"Joe","営業"],[202,2,"Jim","開発"],[203,3,"Carl","営業"],
+    [204,1,"Bree","商品企画"],[204,2,"Bree","開発"],[204,3,"Bree","営業"],[204,4,"Bree","管理"],
+    [205,1,"Kim","商品企画"],[205,2,"Kim","開発"]] },
+  three: { name: "ThreeElements", cols: ["key_col", "name", "date_1", "flg_1", "date_2", "flg_2", "date_3", "flg_3"], rows: [
+    [1,"a","2013-11-01","T",null,null,null,null],[2,"b",null,null,"2013-11-01","T",null,null],
+    [3,"c",null,null,"2013-11-01","F",null,null],[4,"d",null,null,"2013-12-30","T",null,null],
+    [5,"e",null,null,null,null,"2013-11-01","T"],[6,"f",null,null,null,null,"2013-12-01","F"]] },
+};
+T.threeG = { ...T.three, name: "ThreeElements（gを追加）", rows: [...T.three.rows, [7,"g","2013-11-01","F",null,null,"2013-11-01","T"]], mark: 6 };
+
+const THREE_NOTE = "このほかに測定用のダミー行を300,000行入れています（日付は2000〜2009年で、2013-11-01には一致しません）。インデックスはIDX_1 (date_1, flg_1)、IDX_2 (date_2, flg_2)、IDX_3 (date_3, flg_3)。";
+
+const SLIDES = [
+  { type: "cover" },
+  { type: "intro", id: "plan", title: "実行計画の読み方" },
+  { type: "intro", id: "syntax", title: "CASE式とUNION" },
+  { type: "intro", id: "branch", title: "文で分岐するか、式で分岐するか" },
+  { type: "intro", id: "agg", title: "集約やインデックスと組み合わせる" },
+  {
+    type: "q", sec: "3.1 UNIONを使った冗長な表現", title: "税抜と税込を年で切り替える", ref: "branch", table: ["items"],
+    prompt: "2001年までは税抜価格、2002年からは税込価格をprice列として出したい。正しい結果を返し、Itemsへのアクセスが1回で済むのはどれ？",
+    choices: [
+      { q: "items_union_all", tag: "UNION ALL", ok: false, note: "結果は正しいですが、Itemsを2回走査します。実行計画ではAppendの下にSeq Scanが2本並びます。" },
+      { q: "items_case", tag: "CASE式", ok: true, note: "SELECT句のCASE式で列を切り替えるので、Itemsの走査は1回。読んだページ数もUNION ALLの半分です。" },
+      { q: "items_where", tag: "WHEREのOR", ok: false, note: "WHERE句は行を絞り込むだけで、出す列は切り替えられません。結果タブを見ると、2002年以降も税抜価格（カップ2002年 = 600）が出ています。" },
+    ],
+    takeaway: "<b>WHERE句で条件分岐させるのは素人、プロはSELECT句で分岐させる。</b>実行計画で走査の本数を数えると差がはっきりします。",
+  },
+  {
+    type: "q", sec: "3.1 UNIONを使った冗長な表現", title: "UNIONとUNION ALL", ref: "syntax", table: ["items"],
+    prompt: "前の問題のUNION ALLをUNIONに書き換えると、PostgreSQLの実行計画にはどのノードが増える？",
+    choices: [
+      { text: "Index Scan", ok: false, note: "インデックスは関係しません。どちらもSeq Scanのままです。" },
+      { text: "HashAggregate（重複行の除去）", ok: true, note: "UNIONは重複行を取り除くため、Appendの上にHashAggregateが載ります。MySQLでもAppendが「Union materialize with deduplication」に変わります。" },
+      { text: "Nested Loop", ok: false, note: "結合は発生しません。UNIONは結果を縦に積むだけです。" },
+      { text: "何も変わらない", ok: false, note: "UNIONとUNION ALLの違いは重複除去の有無です。その分の処理が計画に現れます。" },
+    ],
+    show: [{ q: "items_union_all", tag: "UNION ALL" }, { q: "items_union", tag: "UNION" }], showDefault: 1,
+    takeaway: "2つのWHERE条件（<code>year &lt;= 2001</code>と<code>year &gt;= 2002</code>）は重ならないので、重複除去は無駄な処理です。<b>条件が排他的ならUNION ALLを使う。</b>",
+  },
+  {
+    type: "q", sec: "3.2 集計における条件分岐", title: "男女の人口を1行に並べる", ref: "agg", table: ["population"],
+    prompt: "県ごとに男性（sex = '1'）と女性（sex = '2'）の人口を1行に並べたい。Populationの走査が1回で済むのはどれ？",
+    choices: [
+      { q: "pop_union", tag: "UNION + GROUP BY", ok: false, note: "WHEREで性別を分けてUNIONで積むので、走査は2回。さらにUNIONの重複除去と外側のGROUP BYでHashAggregateが2段重なります。" },
+      { q: "pop_join", tag: "自己結合", ok: false, note: "自己結合もテーブルを2回参照します。MySQLはW側を主キーで1行ずつ引きますが、それでもPopulationを2回参照しています。" },
+      { q: "pop_case", tag: "SUM(CASE ...)", ok: true, note: "集約関数の中にCASE式を入れると、1回の走査で男女の列を作れます。MySQLは主キーのインデックスを順に読み、そのままGROUP BYしています。" },
+    ],
+    takeaway: "<b>集計の条件分岐もCASE式で書く。</b>表側と表頭を入れ替えるピボットの定番です。",
+  },
+  {
+    type: "q", sec: "3.2 集計における条件分岐", title: "曜日を列に並べる", ref: "agg", table: ["customers"],
+    prompt: "日付ごとの来客数を、曜日を列にして集計したい（ここでは月・火・土・日の4列）。1つだけ誤った数値を返すクエリがある。どれ？",
+    choices: [
+      { q: "cc_sum0", tag: "SUM ... ELSE 0", ok: false, note: "正しい値です（月588、火762、土708、日761）。" },
+      { q: "cc_sumnull", tag: "SUM（ELSEなし）", ok: false, note: "ELSEを省略するとELSE NULLと同じです。SUMはNULLを無視するので、ELSE 0と同じ値になります。" },
+      { q: "cc_count0", tag: "COUNT ... ELSE 0", ok: true, note: "COUNTはNULL以外の値を数える関数です。ELSE 0の0も1件として数えるため、全列が全行数の14になりました。件数を数えたいときは、ELSEを省略してNULLを返します。" },
+      { q: "cc_where", tag: "WHERE + GROUP BY", ok: false, note: "曜日が行に並ぶ縦持ちの結果です。列に並べる要件は満たしていませんが、各曜日の合計は正しく出ています。" },
+    ],
+    takeaway: "どのクエリも走査は1回で、実行計画では区別できません。<b>集約関数がNULLをどう扱うかは、結果を見て確かめる。</b>",
+  },
+  {
+    type: "q", sec: "3.2 集計における条件分岐", title: "兼務の数で表示を変える", ref: "agg", table: ["employees"],
+    prompt: "所属チームが1つの社員はチーム名、2つなら「2つを兼務」、3つ以上なら「3つ以上を兼務」と表示したい。エラーにならず、Employeesの走査が1回で済むのはどれ？",
+    choices: [
+      { q: "emp_union", tag: "HAVING + UNION", ok: false, note: "結果は正しいですが、走査とGROUP BYを3回ずつ実行し、最後に重複除去も行います。" },
+      { q: "emp_case_team", tag: "CASE（teamをそのまま）", ok: false, note: "エラーです。GROUP BY emp_nameで1行にまとめた後では、teamの値は1つに決まりません。MAX(team)のように集約関数で取り出します。" },
+      { q: "emp_where", tag: "WHERE COUNT(*)", ok: false, note: "エラーです。WHERE句は集約より前に評価されるので、COUNT(*)は書けません。" },
+      { q: "emp_case", tag: "CASE（COUNT(*)で分岐）", ok: true, note: "COUNT(*)の戻り値をCASE式の入力にしています。集約関数の結果は1行につき1つのスカラ値なので、CASE式で分岐できます。走査と集約はどちらも1回です。" },
+    ],
+    takeaway: "分岐の条件が件数になっても、考え方は同じです。<b>HAVING句で条件分岐させるのも素人。</b>",
+  },
+  {
+    type: "q", sec: "3.3 それでもUNIONが必要なのです", title: "UNIONが本当に必要な場面", ref: "agg",
+    prompt: "CASE式に書き換えられず、UNIONを使うしかないのはどれ？",
+    choices: [
+      { text: "年によって、表示する価格の列を切り替える", ok: false, note: "SELECT句のCASE式で書けます（最初の問題）。" },
+      { text: "性別ごとの値を列に展開する", ok: false, note: "SUM(CASE ...)で書けます（3問目）。" },
+      { text: "異なるテーブルから取った結果を1つにまとめる", ok: true, note: "SELECTごとにFROMのテーブルが違う場合は、CASE式では書けません。結合で1つのSELECT文にまとめると、本来は不要な結合のコストがかかります。" },
+      { text: "集約した件数によって表示を変える", ok: false, note: "COUNT(*)をCASE式の入力にすれば書けます（前の問題）。" },
+    ],
+    takeaway: "例：<code>SELECT col_1 FROM Table_A WHERE col_2 = 'A' UNION ALL SELECT col_3 FROM Table_B WHERE col_4 = 'B'</code>",
+  },
+  {
+    type: "q", sec: "3.3 それでもUNIONが必要なのです", title: "ORはインデックスを使えないのか", ref: "agg", table: ["three"], tableNote: THREE_NOTE,
+    prompt: "date_nが2013-11-01で、対になるflg_nが'T'の行を探す。本書のOracleの例では、ORで書くとフルスキャンになりUNIONが有利だった。ではPostgreSQL 16でOR版を実行すると、計画はどうなった？",
+    choices: [
+      { text: "テーブルのフルスキャン", ok: false, note: "フルスキャンになったのはCASE式版だけでした（1,622ページ）。" },
+      { text: "3本のインデックスをBitmapOrで合成し、テーブルは1回だけ読む", ok: true, note: "条件ごとにBitmap Index Scanを行い、ビットマップをORで合成してからテーブルを読みます。読んだページ数はUNIONの9に対して7です。" },
+      { text: "IDX_1だけを使い、残りの条件は後からフィルタする", ok: false, note: "3本とも使われています。計画の青い行を見てください。" },
+      { text: "UNIONと同じく、テーブルを3回読む", ok: false, note: "それはUNION版の計画です。OR版のBitmap Heap Scanは1本だけです。" },
+    ],
+    show: [{ q: "te_union", tag: "UNION" }, { q: "te_or", tag: "OR" }, { q: "te_in", tag: "IN（行式）" }, { q: "te_case", tag: "CASE式" }], showDefault: 1,
+    takeaway: "本書の注にあるとおり、ORをUNIONと同じように実行するDBMSもあります。<b>どちらが速いかは、使うDBMSの実行計画で確かめる。</b>",
+  },
+  {
+    type: "q", sec: "3.3 それでもUNIONが必要なのです", title: "MySQLで行式のINを使うと", ref: "plan", table: ["three"], tableNote: THREE_NOTE,
+    prompt: "MySQL 8.0では、OR版はインデックスマージ（3本のインデックスを範囲検索して行IDで重複を除く）になった。では、意味が同じ行式のIN版はどうなった？",
+    choices: [
+      { text: "OR版と同じくインデックスマージ", ok: false, note: "PostgreSQLはINをORに展開してBitmapOrにしましたが、MySQLはそうしませんでした。" },
+      { text: "テーブルのフルスキャン", ok: true, note: "MySQLは行式のINをインデックス検索に変換できず、約30万行をすべて読んでフィルタしています。" },
+      { text: "IDX_1だけを使う", ok: false, note: "インデックスは1本も使われていません。" },
+      { text: "構文エラー", ok: false, note: "MySQL 8.0は行式（row constructor）のINをサポートしています。結果も正しく返ります。" },
+    ],
+    show: [{ q: "te_union", tag: "UNION" }, { q: "te_or", tag: "OR" }, { q: "te_in", tag: "IN（行式）" }, { q: "te_case", tag: "CASE式" }], showDefault: 2, db: "my",
+    takeaway: "INとORは同じ意味でも、オプティマイザが同じ計画にするとは限りません。<b>書き換えたら、計画も見直す。</b>",
+  },
+  {
+    type: "q", sec: "演習問題3", title: "同じ結果を返さなくなるクエリ", ref: "syntax", table: ["threeG"], res: "resg",
+    prompt: "「(date_n, flg_n)のペアのうち値を持つのは1つだけ」という前提を外し、次の行gを追加する。UNION・OR・IN・CASE式のうち、他と違う結果を返すのはどれ？",
+    code: "INSERT INTO ThreeElements\nVALUES (7, 'g', '2013-11-01', 'F', NULL, NULL, '2013-11-01', 'T');",
+    choices: [
+      { q: "te_union", tag: "UNION", ok: false, note: "3つ目のSELECT（date_3とflg_3の条件）でgが返ります。" },
+      { q: "te_or", tag: "OR", ok: false, note: "3つ目の条件が真になるので、gは残ります。" },
+      { q: "te_in", tag: "IN（行式）", ok: false, note: "('2013-11-01', 'T')が(date_3, flg_3)と一致するので、gは残ります。" },
+      { q: "te_case", tag: "CASE式", ok: true, note: "gだけ返りません。CASE式は上のWHENから順に評価し、最初に真になった分岐で止まるからです。次のスライドで1ステップずつ追います。" },
+    ],
+    takeaway: "結果タブでa・b・e・gが返るか比べてみてください。",
+  },
+  { type: "steps" },
+  { type: "answer" },
+  {
+    type: "q", sec: "3.4 手続き型と宣言型", title: "SQLの各句に書くもの", ref: "branch",
+    prompt: "SELECT・FROM・WHERE・GROUP BY・HAVING・ORDER BYの各句に書くものは、手続き型言語の用語でいうと何？",
+    choices: [
+      { text: "文（statement）", ok: false, note: "UNIONで連結する対象はSELECT「文」ですが、各句の中に文は書きません。" },
+      { text: "式（expression）", ok: true, note: "各句に書くのはすべて式です。列名だけでも、定数だけでも式です。" },
+      { text: "手続き（procedure）", ok: false, note: "SQL文の中に手続きは書きません。" },
+      { text: "ブロック", ok: false, note: "SQLの句はブロック構造を持ちません。" },
+    ],
+    takeaway: "手続き型の言語でIF文を書く箇所には、SQLでは<b>CASE式</b>を書く。",
+  },
+  { type: "end" },
+];
+
+const QUESTIONS = SLIDES.map((s, i) => s.type === "q" ? i : -1).filter(i => i >= 0);
+const KEYS = "ABCD";
+const STORE = "sql-jissen-ch3-drill-v2";
+let state = { cur: 0, ans: {}, step: 0 };
+try { Object.assign(state, JSON.parse(localStorage.getItem(STORE) || "{}")); } catch (e) {}
+state.cur = Math.min(Math.max(0, state.cur | 0), SLIDES.length - 1);
+const view = {};
+function save() { try { localStorage.setItem(STORE, JSON.stringify({ cur: state.cur, ans: state.ans })); } catch (e) {} }
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+const RE = {
+  pg: { full: /Seq Scan on /, idx: /Bitmap Index Scan on |Index (Only )?Scan using / },
+  my: { full: /(Table|Index) scan on (?!<)/, idx: /Index lookup on |Index range scan on |Single-row index lookup on / },
+};
+function isError(t) { return /^ERROR/m.test(t); }
+function analyze(text, db) {
+  const lines = text.split("\n");
+  let full = 0, idx = 0;
+  const html = lines.map(l => {
+    let cls = "";
+    if (/^ERROR|^LINE \d|^\s+\^/.test(l)) cls = "err";
+    else if (RE[db].full.test(l)) { cls = "full"; full++; }
+    else if (RE[db].idx.test(l)) { cls = "idx"; idx++; }
+    else if (/Buffers:|Batches:|Memory Usage|Heap Blocks|Rows Removed/.test(l)) cls = "dim";
+    return `<span class="l ${cls}">${esc(l) || " "}</span>`;
+  }).join("");
+  const m = db === "pg" && text.match(/Buffers: shared hit=(\d+)/);
+  return { html, full, idx, pages: m ? +m[1] : null, error: isError(text) };
+}
+
+function renderTable(key) {
+  const t = T[key];
+  const head = t.cols.map(c => `<th>${esc(c)}</th>`).join("");
+  const body = t.rows.map((r, i) => `<tr class="${t.mark === i ? "mark" : ""}">${r.map(v =>
+    v === null ? `<td class="null">NULL</td>` : `<td class="${typeof v === "number" ? "num" : ""}">${esc(v)}</td>`).join("")}</tr>`).join("");
+  return `<div class="label">${esc(t.name)}</div><div class="tbl-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function queriesOf(s) {
+  return s.show || s.choices.filter(c => c.q).map(c => ({ q: c.q, tag: c.tag }));
+}
+
+function renderQ(s, i) {
+  const qn = QUESTIONS.indexOf(i) + 1;
+  const a = state.ans[i];
+  const answered = a !== undefined;
+  const v = view[i] || (view[i] = { tab: s.table ? "data" : "plan", viewing: a, q: null, db: s.db || "pg" });
+  const qs = queriesOf(s);
+  if (!v.q && qs.length) v.q = qs[s.showDefault || 0].q;
+
+  const choices = s.choices.map((c, k) => {
+    let cls = "choice", mark = "";
+    if (answered) {
+      if (c.ok) { cls += " is-ok"; mark = "正解"; }
+      else if (k === a) { cls += " is-ng"; mark = "あなたの回答"; }
+    }
+    if (answered && v.viewing === k) cls += " viewing";
+    const body = c.q ? `<code>${esc(D[c.q].sql)}</code>` : esc(c.text);
+    return `<li><button type="button" class="${cls}" data-choice="${k}"><span class="key">${KEYS[k]}</span><span class="ctext">${mark ? `<span class="mark">${mark}</span>` : ""}${body}</span></button></li>`;
+  }).join("");
+
+  let feedback = "";
+  if (answered) {
+    const ok = s.choices[a].ok;
+    const vc = s.choices[v.viewing ?? a];
+    feedback = `<div class="feedback">
+      <div class="verdict ${ok ? "ok" : "ng"}">${ok ? "正解" : "不正解"}</div>
+      <p><b>${KEYS[v.viewing ?? a]}${vc.tag ? "（" + esc(vc.tag) + "）" : ""}：</b>${esc(vc.note)}</p>
+      <p class="takeaway">${s.takeaway}</p>
+      <p class="hint">他の選択肢を押すと、その解説と実行計画を見られます（採点は最初の回答だけ）。</p>
+      <button type="button" class="pill" id="retry" style="align-self:flex-start">この問題をやり直す</button>
+    </div>`;
+  } else {
+    feedback = `<p class="hint">選択肢を押すと採点され、${qs.length ? "PostgreSQL 16とMySQL 8.0の実行計画" : "解説"}が表示されます。キーボードの1〜${s.choices.length}でも選べます。</p>`;
+  }
+
+  const hasPanel = s.table || qs.length;
+  let panel = "";
+  if (hasPanel) {
+    const tabs = [];
+    if (s.table) tabs.push(["data", "データ"]);
+    if (qs.length) tabs.push(["plan", "実行計画"], ["res", "結果"]);
+    const tabHtml = tabs.map(([id, label]) => {
+      const locked = id !== "data" && !answered;
+      return `<button type="button" class="tab" role="tab" data-tab="${id}" aria-selected="${v.tab === id}" ${locked ? "disabled title=\"回答すると見られます\"" : ""}>${label}${locked ? "（回答後）" : ""}</button>`;
+    }).join("");
+    let body = "";
+    if (v.tab === "data" || !answered) {
+      body = s.table.map(renderTable).join("") + (s.tableNote ? `<p class="hint">${esc(s.tableNote)}</p>` : "");
+    } else {
+      const d = D[v.q];
+      const pills = qs.length > 1 ? `<div class="row">${qs.map(x =>
+        `<button type="button" class="pill" data-q="${x.q}" aria-pressed="${x.q === v.q}">${esc(x.tag)}</button>`).join("")}</div>` : "";
+      if (v.tab === "plan") {
+        const r = analyze(v.db === "pg" ? d.pg : d.my, v.db);
+        const chips = r.error ? `<span class="chip err">エラー</span>` :
+          `<span class="chip full">フルスキャン ×${r.full}</span><span class="chip idx">インデックス検索 ×${r.idx}</span>` +
+          (r.pages !== null ? `<span class="chip pages">読んだページ ${r.pages.toLocaleString()}</span>` : "");
+        body = `${pills}
+          <div class="row"><div class="seg" role="group" aria-label="DBMS">
+            <button type="button" data-db="pg" aria-pressed="${v.db === "pg"}">PostgreSQL 16</button>
+            <button type="button" data-db="my" aria-pressed="${v.db === "my"}">MySQL 8.0</button></div>${chips}</div>
+          <div class="label">SQL</div><pre>${esc(d.sql)}</pre>
+          <div class="label">${v.db === "pg" ? "EXPLAIN (ANALYZE, BUFFERS)" : "EXPLAIN FORMAT=TREE"}</div>
+          <pre class="plan">${r.html}</pre>
+          <div class="legend"><span class="lf">テーブルを全件読む</span><span class="li">インデックスで探す</span></div>`;
+      } else {
+        const res = (s.res === "resg" && d.resg) || d.res;
+        body = `${pills}<div class="label">PostgreSQL 16の結果${s.res === "resg" ? "（gを追加した状態）" : ""}</div><pre>${esc(res)}</pre>`;
+      }
+    }
+    panel = `<section class="panel"><div class="tabs" role="tablist">${tabHtml}</div><div class="pbody">${body}</div></section>`;
+  }
+
+  const ref = s.ref ? `<button type="button" class="pill" data-ref="${s.ref}">基礎：${esc(SLIDES[slideOf(s.ref)].title)}</button>` : "";
+  return `<div class="head"><span class="qno">Q${qn} / ${QUESTIONS.length}</span><span class="eyebrow">${esc(s.sec)}</span>${ref}</div>
+    <h2>${esc(s.title)}</h2>
+    <div class="grid" style="${hasPanel ? "" : "grid-template-columns:minmax(0,1fr)"}">
+      <div class="col">
+        <p class="prompt">${esc(s.prompt)}</p>
+        ${s.code ? `<pre>${esc(s.code)}</pre>` : ""}
+        <ol class="choices">${choices}</ol>
+        ${feedback}
+      </div>
+      ${hasPanel ? `<div class="col">${panel}</div>` : ""}
+    </div>`;
+}
+
+const STEPS = {
+  caseLane: [
+    ["WHEN date_1 = '2013-11-01'", `<span class="t">真</span>（gのdate_1は2013-11-01）`],
+    ["THEN flg_1", `'F'を返してCASE式はここで終わる`],
+    ["WHEN date_2 … / WHEN date_3 …", `<span class="n">評価されない</span>`],
+    ["'F' = 'T'", `<span class="f">偽</span> → gは除外される`],
+  ],
+  orLane: [
+    ["date_1 = '2013-11-01' AND flg_1 = 'T'", `<span class="t">真</span> AND <span class="f">偽</span> → <span class="f">偽</span>`],
+    ["date_2 = '2013-11-01' AND flg_2 = 'T'", `NULL AND NULL → <span class="n">NULL</span>`],
+    ["date_3 = '2013-11-01' AND flg_3 = 'T'", `<span class="t">真</span> AND <span class="t">真</span> → <span class="t">真</span>`],
+    ["偽 OR NULL OR 真", `<span class="t">真</span> → gは残る`],
+  ],
+};
+function renderSteps() {
+  const n = state.step;
+  const lane = (title, rows, isCase) => `<div class="lane"><h3>${title}</h3>${rows.map(([c, out], k) => {
+    let cls = "step";
+    if (k >= n) cls += " pending";
+    else if (k === n - 1) cls += " now";
+    if (isCase && k === 2 && k < n) cls += " skip";
+    return `<div class="${cls}"><code>${esc(c)}</code><span class="out">${out}</span></div>`;
+  }).join("")}</div>`;
+  return `<div class="head"><span class="eyebrow">演習問題3の解説</span></div>
+    <h2>行gを1ステップずつ評価する</h2>
+    <p class="prompt">行gでは、date_1とdate_3がどちらも2013-11-01です。フラグの値はflg_1 = 'F'、flg_3 = 'T'です。この行をCASE式版とOR版のWHERE条件がどう評価するかを並べます。</p>
+    ${renderTable("threeG").replace(/<tr class="">.*?<\/tr>/gs, "")}
+    <div class="row"><button type="button" class="big-btn" id="stepNext">${n >= 4 ? "最初から" : n === 0 ? "評価を始める" : "次のステップ"}</button><span class="hint">ステップ${n} / 4</span></div>
+    <div class="steps">${lane("CASE式版", STEPS.caseLane, true)}${lane("OR版（UNION・INも同じ判定）", STEPS.orLane, false)}</div>`;
+}
+
+function renderAnswer() {
+  return `<div class="head"><span class="eyebrow">演習問題3の解説</span></div>
+    <h2>同値性が崩れるのはどんなときか</h2>
+    <div class="grid">
+      <div class="col">
+        <p class="prompt">複数のペアが同じ日付を持ち、<b>先に評価されるペアのフラグが'T'でなく、後ろのペアのフラグが'T'</b>のとき、CASE式版だけがその行を返しません。CASE式は最初に真になったWHENで止まり、後ろのペアを見ないからです。</p>
+        <p class="prompt">UNION・OR・INはどのペアについても独立に条件を判定するので、どれか1つのペアが一致すれば行を返します。</p>
+        <p class="takeaway">発展：UNIONをUNION ALLに変えると、条件を満たすペアを2つ持つ行は2回返ります。たとえばdate_1とdate_3が2013-11-01で、flg_1とflg_3がどちらも'T'の行です。UNIONは重複を取り除くので、この行は1回だけ返ります。</p>
+      </div>
+      <div class="col">
+        <div class="label">CASE式版のWHERE条件</div>
+        <pre>${esc(D.te_case.sql.split("WHERE")[1].trim().replace(/^/, "WHERE "))}</pre>
+        <p class="hint">前提（値を持つペアは1つだけ）が守られている間は、どのWHENが真になっても対になるフラグを見るので、4つのクエリは同じ結果を返します。</p>
+      </div>
+    </div>`;
+}
+
+const INTROS = SLIDES.filter(s => s.type === "intro");
+const slideOf = id => SLIDES.findIndex(s => s.type === "intro" && s.id === id);
+const pre = s => `<pre>${esc(s)}</pre>`;
+const INTRO_BODY = {
+  plan: () => {
+    const r = analyze(D.cc_where.pg, "pg");
+    return `<div class="grid">
+      <div class="col">
+        <p class="prompt">SQLには欲しいデータの条件だけを書きます。データをどの順にどう読むかはDBMSのオプティマイザが決め、その手順を実行計画と呼びます。SQLの先頭にEXPLAINを付けて実行すると、実行計画を表示できます。</p>
+        <p class="prompt">実行計画は木の形をしています。インデントの深い行から先に実行し、その結果を1つ上の行に渡します。</p>
+        <div class="label">よく出てくるノード</div>
+        <div class="tbl-wrap" style="max-height:none"><table>
+          <thead><tr><th>意味</th><th>PostgreSQL</th><th>MySQL</th></tr></thead>
+          <tbody>
+            <tr><td>テーブルを全件読む</td><td>Seq Scan</td><td>Table scan</td></tr>
+            <tr><td>インデックスで探す</td><td>Index Scan<br>Bitmap Index Scan</td><td>Index lookup<br>Index range scan</td></tr>
+            <tr><td>結果を縦に積む</td><td>Append</td><td>Append<br>Union materialize</td></tr>
+            <tr><td>集約、重複除去</td><td>HashAggregate</td><td>Aggregate using temporary table</td></tr>
+            <tr><td>読んだページ数</td><td>Buffers: shared hit</td><td>表示なし</td></tr>
+          </tbody></table></div>
+      </div>
+      <div class="col">
+        <div class="label">例：曜日ごとの来客数を合計する</div>
+        ${pre(D.cc_where.sql)}
+        <div class="label">PostgreSQLの実行計画</div>
+        <pre class="plan">${r.html}</pre>
+        <ol class="points">
+          <li>Seq ScanでCustomerCountの全14行を読み、Filterの条件に合わない6行を捨てます。</li>
+          <li>HashAggregateが残りの8行をdowごとに集約します。</li>
+          <li>Buffers: shared hit=1は、読んだページ数が1だったことを表します。</li>
+        </ol>
+        <div class="legend"><span class="lf">テーブルを全件読む行</span><span class="li">インデックスで探す行</span></div>
+      </div>
+    </div>`;
+  },
+  syntax: () => `<div class="grid">
+      <div class="col">
+        <div class="label">CASE式</div>
+        ${pre("CASE WHEN 条件1 THEN 値1\n     WHEN 条件2 THEN 値2\n     ELSE 値3\nEND")}
+        <ul class="points">
+          <li>WHENを上から順に評価し、最初に真になった分岐の値を返します。残りのWHENは評価しません。</li>
+          <li>どの条件も真にならなければ、ELSEの値を返します。ELSEを省略するとNULLを返します。</li>
+          <li>CASE式は値を返す式です。SELECT句、WHERE句、集約関数の引数など、式を書ける場所ならどこにでも書けます。</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="label">UNION と UNION ALL</div>
+        ${pre("SELECT col_1 FROM Table_A WHERE ...\nUNION ALL\nSELECT col_1 FROM Table_B WHERE ...")}
+        <ul class="points">
+          <li>複数のSELECT文の結果を縦につなぎます。各SELECT文の列の数と型をそろえます。</li>
+          <li>UNIONは重複した行を1つにまとめます。UNION ALLは重複を残したままつなぎます。</li>
+          <li>各SELECT文は、それぞれ別にテーブルを読みます。</li>
+        </ul>
+      </div>
+    </div>`,
+  branch: () => `<p class="prompt">例として、チケットの料金を平日と休日で切り替えて出すとします。Ticketsテーブルは平日料金と休日料金の両方の列を持っています。</p>
+    <div class="grid">
+      <div class="col">
+        <div class="label">文で分岐する（UNION）</div>
+        ${pre("SELECT ticket_date, price_weekday AS price\n  FROM Tickets\n WHERE is_holiday = 0\nUNION ALL\nSELECT ticket_date, price_holiday AS price\n  FROM Tickets\n WHERE is_holiday = 1;")}
+        <p>条件ごとにSELECT文を書き、結果をつなぎます。手続き型の言語でIF文を書くときと同じ発想です。</p>
+      </div>
+      <div class="col">
+        <div class="label">式で分岐する（CASE式）</div>
+        ${pre("SELECT ticket_date,\n       CASE WHEN is_holiday = 0 THEN price_weekday\n            ELSE price_holiday END AS price\n  FROM Tickets;")}
+        <p>1つのSELECT文の中で、行ごとに出す値を切り替えます。SQLの各句に書くのは式なので、分岐もCASE式で書けます。</p>
+      </div>
+    </div>
+    <p class="takeaway">SQLの性能は、ストレージへのI/Oをどれだけ減らせるかで大きく変わります。<b>SELECT文が増えると、テーブルを読む回数も増えやすい。</b>実行計画で、テーブルを何回読んでいるかを確かめます。</p>`,
+  agg: () => `<div class="grid">
+      <div class="col">
+        <div class="label">句を評価する順番</div>
+        <div class="row">${["FROM", "WHERE", "GROUP BY", "HAVING", "SELECT", "ORDER BY"].map(w => `<span class="chip pages">${w}</span>`).join("<span class=\"hint\">→</span>")}</div>
+        <ul class="points">
+          <li>WHERE句は集約の前に行を絞ります。集約関数はWHERE句に書けません。</li>
+          <li>HAVING句とSELECT句は集約の後に評価します。COUNT(*)などの結果をCASE式の条件にも使えます。</li>
+          <li>集約関数の中にCASE式を書くと、条件に合う行だけを集計できます。例：<code>SUM(CASE WHEN sex = '1' THEN pop ELSE 0 END)</code></li>
+          <li>COUNT(式)とSUM(式)はNULLを無視します。COUNT(式)が数えるのは、NULL以外の値の件数です。</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="label">インデックスとUNION</div>
+        <ul class="points">
+          <li>インデックスは、列の値から行の場所を引くための索引です。条件に合う行が少ないほど、全件を読むより速く探せます。</li>
+          <li>条件ごとに別のインデックスを使える場合は、UNIONで書くと速くなることもあります。ORやINでもインデックスを使えるかどうかは、DBMSのオプティマイザ次第です。</li>
+          <li>FROMのテーブルが異なるSELECT文の結果をまとめるときは、UNIONを使います。</li>
+        </ul>
+        <p class="takeaway"><b>どの書き方が速いかは、使うDBMSの実行計画で確かめる。</b></p>
+      </div>
+    </div>`,
+};
+function renderIntro(s) {
+  const n = INTROS.indexOf(s) + 1;
+  const back = state.back !== undefined && SLIDES[state.back]?.type === "q"
+    ? `<button type="button" class="pill" id="back">Q${QUESTIONS.indexOf(state.back) + 1}に戻る</button>` : "";
+  return `<div class="head"><span class="qno">基礎 ${n} / ${INTROS.length}</span><span class="eyebrow">本を読む前に押さえておくこと</span>${back}</div>
+    <h2>${esc(s.title)}</h2>
+    ${INTRO_BODY[s.id]()}`;
+}
+
+function renderCover() {
+  return `<div class="eyebrow">［改訂新版］SQL実践入門 第3章　演習ドリル</div>
+    <h1>SQLにおける条件分岐<br>文から式へ</h1>
+    <p class="lede">UNIONとCASE式の書き分けを${QUESTIONS.length}問で確かめます。選択肢を選ぶと、そのクエリの実行計画が表示されます。走査の本数と読んだページ数を比べてください。</p>
+    <p class="lede">最初の4枚に3章の基礎をまとめたので、本を読む前でも解けます。各問題の上にあるボタンから、関連する基礎のスライドを開けます。</p>
+    <div class="cover-grid">
+      <div class="card"><h3>実測の実行計画</h3><p>本書のサンプルデータを使い、PostgreSQL 16とMySQL 8.0で実際にEXPLAINを実行して取得しました。</p></div>
+      <div class="card"><h3>色の意味</h3><p><span style="color:var(--scan);font-weight:700">オレンジ</span>はテーブルを全件読む行、<span style="color:var(--accent);font-weight:700">青</span>はインデックスで探す行です。</p></div>
+      <div class="card"><h3>操作</h3><p>← → でスライド送り、1〜4で回答。回答はこのブラウザにだけ保存されます。</p></div>
+    </div>
+    <div class="row"><button type="button" class="big-btn" id="start">基礎から読む →</button><button type="button" class="pill" id="startQ">問題から解く</button>${Object.keys(state.ans).length ? `<button type="button" class="pill" id="reset">回答をすべてリセット</button>` : ""}</div>`;
+}
+
+function renderEnd() {
+  const okCount = QUESTIONS.filter(i => state.ans[i] !== undefined && SLIDES[i].choices[state.ans[i]].ok).length;
+  const recap = QUESTIONS.map((i, n) => {
+    const a = state.ans[i];
+    const r = a === undefined ? ["na", "未回答"] : SLIDES[i].choices[a].ok ? ["ok", "正解"] : ["ng", "不正解"];
+    return `<li><span class="r ${r[0]}">${r[1]}</span><span>Q${n + 1} ${esc(SLIDES[i].title)}</span></li>`;
+  }).join("");
+  return `<div class="head"><span class="eyebrow">第3章のまとめ</span></div>
+    <div class="row" style="gap:18px;align-items:flex-end"><span class="score">${okCount} / ${QUESTIONS.length}</span><span class="hint">正解数</span></div>
+    <ul class="recap">${recap}</ul>
+    <ul class="points">
+      <li>SQLの性能は、ストレージへのI/Oをどれだけ減らせるかで決まる。</li>
+      <li>UNIONで条件分岐を書きたくなったら、冗長性症候群を疑う。</li>
+      <li>CASE式やINで書ければ、テーブルの走査を大きく減らせることがある。ただし、どれが速いかは実行計画で確かめる。</li>
+      <li>文から式への発想の切り替えを身に付ける。</li>
+    </ul>
+    <button type="button" class="big-btn" id="reset">回答をリセットして最初から</button>`;
+}
+
+const stage = document.getElementById("stage");
+function render() {
+  const s = SLIDES[state.cur];
+  stage.className = "slide" + (s.type === "cover" ? " cover" : "");
+  stage.innerHTML = s.type === "cover" ? renderCover() : s.type === "q" ? renderQ(s, state.cur) : s.type === "intro" ? renderIntro(s)
+    : s.type === "steps" ? renderSteps() : s.type === "answer" ? renderAnswer() : renderEnd();
+  document.getElementById("prev").disabled = state.cur === 0;
+  document.getElementById("next").disabled = state.cur === SLIDES.length - 1;
+  document.getElementById("pos").textContent = `${state.cur + 1} / ${SLIDES.length}`;
+  document.getElementById("dots").innerHTML = SLIDES.map((x, i) => {
+    let c = "dot";
+    if (i === state.cur) c += " cur";
+    if (x.type === "q" && state.ans[i] !== undefined) c += x.choices[state.ans[i]].ok ? " ok" : " ng";
+    return `<button type="button" class="${c}" data-go="${i}" aria-label="スライド${i + 1}"></button>`;
+  }).join("");
+  save();
+}
+function go(i) {
+  if (i < 0 || i >= SLIDES.length) return;
+  state.cur = i; stage.scrollTop = 0; render();
+}
+function choose(k) {
+  const i = state.cur, s = SLIDES[i];
+  if (s.type !== "q" || !s.choices[k]) return;
+  const v = view[i] || (view[i] = { tab: "plan", db: s.db || "pg" });
+  if (state.ans[i] === undefined) state.ans[i] = k;
+  v.viewing = k;
+  if (s.choices[k].q) v.q = s.choices[k].q;
+  if (queriesOf(s).length && v.tab === "data") v.tab = "plan";
+  render();
+}
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button");
+  if (!t) return;
+  const v = view[state.cur];
+  if (t.id === "prev") go(state.cur - 1);
+  else if (t.id === "next") go(state.cur + 1);
+  else if (t.id === "start") go(1);
+  else if (t.id === "startQ") go(QUESTIONS[0]);
+  else if (t.dataset.ref) { state.back = state.cur; go(slideOf(t.dataset.ref)); }
+  else if (t.id === "back") { const b = state.back; delete state.back; go(b); }
+  else if (t.id === "retry") { delete state.ans[state.cur]; delete view[state.cur]; render(); }
+  else if (t.id === "reset") { state.ans = {}; state.step = 0; for (const k in view) delete view[k]; go(0); }
+  else if (t.id === "stepNext") { state.step = state.step >= 4 ? 0 : state.step + 1; render(); }
+  else if (t.dataset.go) go(+t.dataset.go);
+  else if (t.dataset.choice) choose(+t.dataset.choice);
+  else if (t.dataset.tab && v) { v.tab = t.dataset.tab; render(); }
+  else if (t.dataset.q && v) { v.q = t.dataset.q; render(); }
+  else if (t.dataset.db && v) { v.db = t.dataset.db; render(); }
+});
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "ArrowRight") go(state.cur + 1);
+  else if (e.key === "ArrowLeft") go(state.cur - 1);
+  else if (/^[1-4]$/.test(e.key)) choose(+e.key - 1);
+});
+render();
+</script>
+</body>
+</html>
