@@ -176,7 +176,6 @@ tr.mark td { background: var(--scan-soft); }
 </style>
 </head>
 <body>
-
 <div class="app">
   <main class="slide" id="stage" aria-live="polite"></main>
   <nav class="nav" aria-label="スライド送り">
@@ -189,7 +188,6 @@ tr.mark td { background: var(--scan-soft); }
 
 <script>
 const D = {"cc_count0": {"sql": "SELECT COUNT(CASE WHEN dow = 'Mon' THEN customers ELSE 0 END) AS mon,\n       COUNT(CASE WHEN dow = 'Tue' THEN customers ELSE 0 END) AS tue,\n       COUNT(CASE WHEN dow = 'Sat' THEN customers ELSE 0 END) AS sat,\n       COUNT(CASE WHEN dow = 'Sun' THEN customers ELSE 0 END) AS sun\n  FROM CustomerCount", "pg": " Aggregate (actual rows=1 loops=1)\n   Buffers: shared hit=1\n   ->  Seq Scan on customercount (actual rows=14 loops=1)\n         Buffers: shared hit=1", "my": "-> Count rows in CustomerCount", "res": " mon | tue | sat | sun \n-----+-----+-----+-----\n  14 |  14 |  14 |  14"}, "cc_sum0": {"sql": "SELECT SUM(CASE WHEN dow = 'Mon' THEN customers ELSE 0 END) AS mon,\n       SUM(CASE WHEN dow = 'Tue' THEN customers ELSE 0 END) AS tue,\n       SUM(CASE WHEN dow = 'Sat' THEN customers ELSE 0 END) AS sat,\n       SUM(CASE WHEN dow = 'Sun' THEN customers ELSE 0 END) AS sun\n  FROM CustomerCount", "pg": " Aggregate (actual rows=1 loops=1)\n   Buffers: shared hit=1\n   ->  Seq Scan on customercount (actual rows=14 loops=1)\n         Buffers: shared hit=1", "my": "-> Aggregate: sum((case when (CustomerCount.dow = 'Mon') then CustomerCount.customers else 0 end)), sum((case when (CustomerCount.dow = 'Tue') then CustomerCount.customers else 0 end)), sum((case when (CustomerCount.dow = 'Sat') then CustomerCount.customers else 0 end)), sum((case when (CustomerCount.dow = 'Sun') then CustomerCount.customers else 0 end))  (cost=3.05 rows=1)\n    -> Table scan on CustomerCount  (cost=1.65 rows=14)", "res": " mon | tue | sat | sun \n-----+-----+-----+-----\n 588 | 762 | 708 | 761"}, "cc_sumnull": {"sql": "SELECT SUM(CASE WHEN dow = 'Mon' THEN customers END) AS mon,\n       SUM(CASE WHEN dow = 'Tue' THEN customers END) AS tue,\n       SUM(CASE WHEN dow = 'Sat' THEN customers END) AS sat,\n       SUM(CASE WHEN dow = 'Sun' THEN customers END) AS sun\n  FROM CustomerCount", "pg": " Aggregate (actual rows=1 loops=1)\n   Buffers: shared hit=1\n   ->  Seq Scan on customercount (actual rows=14 loops=1)\n         Buffers: shared hit=1", "my": "-> Aggregate: sum((case when (CustomerCount.dow = 'Mon') then CustomerCount.customers end)), sum((case when (CustomerCount.dow = 'Tue') then CustomerCount.customers end)), sum((case when (CustomerCount.dow = 'Sat') then CustomerCount.customers end)), sum((case when (CustomerCount.dow = 'Sun') then CustomerCount.customers end))  (cost=3.05 rows=1)\n    -> Table scan on CustomerCount  (cost=1.65 rows=14)", "res": " mon | tue | sat | sun \n-----+-----+-----+-----\n 588 | 762 | 708 | 761"}, "cc_where": {"sql": "SELECT dow, SUM(customers) AS customers\n  FROM CustomerCount\n WHERE dow IN ('Mon', 'Tue', 'Sat', 'Sun')\n GROUP BY dow", "pg": " HashAggregate (actual rows=4 loops=1)\n   Group Key: dow\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=1\n   ->  Seq Scan on customercount (actual rows=8 loops=1)\n         Filter: (dow = ANY ('{Mon,Tue,Sat,Sun}'::bpchar[]))\n         Rows Removed by Filter: 6\n         Buffers: shared hit=1", "my": "-> Table scan on <temporary>\n    -> Aggregate using temporary table\n        -> Filter: (CustomerCount.dow in ('Mon','Tue','Sat','Sun'))  (cost=1.65 rows=5.6)\n            -> Table scan on CustomerCount  (cost=1.65 rows=14)", "res": " dow | customers \n-----+-----------\n Sun |       761\n Sat |       708\n Tue |       762\n Mon |       588"}, "emp_case": {"sql": "SELECT emp_name,\n       CASE WHEN COUNT(*) = 1  THEN MAX(team)\n            WHEN COUNT(*) = 2  THEN '2つを兼務'\n            WHEN COUNT(*) >= 3 THEN '3つ以上を兼務'\n        END AS team\n  FROM Employees\n GROUP BY emp_name", "pg": " HashAggregate (actual rows=5 loops=1)\n   Group Key: emp_name\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=1\n   ->  Seq Scan on employees (actual rows=11 loops=1)\n         Buffers: shared hit=1", "my": "-> Table scan on <temporary>\n    -> Aggregate using temporary table\n        -> Table scan on Employees  (cost=1.35 rows=11)", "res": " emp_name |     team      \n----------+---------------\n Jim      | 開発\n Kim      | 2つを兼務\n Carl     | 営業\n Joe      | 3つ以上を兼務\n Bree     | 3つ以上を兼務"}, "emp_case_team": {"sql": "SELECT emp_name,\n       CASE WHEN COUNT(*) = 1  THEN team\n            WHEN COUNT(*) = 2  THEN '2つを兼務'\n            WHEN COUNT(*) >= 3 THEN '3つ以上を兼務'\n        END AS team\n  FROM Employees\n GROUP BY emp_name", "pg": "ERROR:  column \"employees.team\" must appear in the GROUP BY clause or be used in an aggregate function\nLINE 2:        CASE WHEN COUNT(*) = 1  THEN team\n                                            ^", "my": "ERROR 1055 (42000) at line 1: Expression #2 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'quiz.Employees.team' which is not functionally dependent on columns in GROUP BY clause; this is incompatible with sql_mode=only_full_group_by", "res": "ERROR:  column \"employees.team\" must appear in the GROUP BY clause or be used in an aggregate function\nLINE 2:        CASE WHEN COUNT(*) = 1  THEN team\n                                            ^"}, "emp_union": {"sql": "SELECT emp_name, MAX(team) AS team\n  FROM Employees\n GROUP BY emp_name\nHAVING COUNT(*) = 1\nUNION\nSELECT emp_name, '2つを兼務' AS team\n  FROM Employees\n GROUP BY emp_name\nHAVING COUNT(*) = 2\nUNION\nSELECT emp_name, '3つ以上を兼務' AS team\n  FROM Employees\n GROUP BY emp_name\nHAVING COUNT(*) >= 3", "pg": " HashAggregate (actual rows=5 loops=1)\n   Group Key: employees.emp_name, (max((employees.team)::text))\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=3\n   ->  Append (actual rows=5 loops=1)\n         Buffers: shared hit=3\n         ->  HashAggregate (actual rows=2 loops=1)\n               Group Key: employees.emp_name\n               Filter: (count(*) = 1)\n               Batches: 1  Memory Usage: 24kB\n               Rows Removed by Filter: 3\n               Buffers: shared hit=1\n               ->  Seq Scan on employees (actual rows=11 loops=1)\n                     Buffers: shared hit=1\n         ->  HashAggregate (actual rows=1 loops=1)\n               Group Key: employees_1.emp_name\n               Filter: (count(*) = 2)\n               Batches: 1  Memory Usage: 24kB\n               Rows Removed by Filter: 4\n               Buffers: shared hit=1\n               ->  Seq Scan on employees employees_1 (actual rows=11 loops=1)\n                     Buffers: shared hit=1\n         ->  HashAggregate (actual rows=2 loops=1)\n               Group Key: employees_2.emp_name\n               Filter: (count(*) >= 3)\n               Batches: 1  Memory Usage: 24kB\n               Rows Removed by Filter: 3\n               Buffers: shared hit=1\n               ->  Seq Scan on employees employees_2 (actual rows=11 loops=1)\n                     Buffers: shared hit=1", "my": "-> Table scan on <union temporary>  (cost=2.5..2.5 rows=0)\n    -> Union materialize with deduplication  (cost=0..0 rows=0)\n        -> Filter: (count(0) = 1)\n            -> Table scan on <temporary>\n                -> Aggregate using temporary table\n                    -> Table scan on Employees  (cost=1.35 rows=11)\n        -> Filter: (count(0) = 2)\n            -> Table scan on <temporary>\n                -> Aggregate using temporary table\n                    -> Table scan on Employees  (cost=1.35 rows=11)\n        -> Filter: (count(0) >= 3)\n            -> Table scan on <temporary>\n                -> Aggregate using temporary table\n                    -> Table scan on Employees  (cost=1.35 rows=11)", "res": " emp_name |     team      \n----------+---------------\n Joe      | 3つ以上を兼務\n Carl     | 営業\n Kim      | 2つを兼務\n Jim      | 開発\n Bree     | 3つ以上を兼務"}, "emp_where": {"sql": "SELECT emp_name,\n       CASE WHEN COUNT(*) = 1  THEN MAX(team)\n            WHEN COUNT(*) = 2  THEN '2つを兼務'\n            WHEN COUNT(*) >= 3 THEN '3つ以上を兼務'\n        END AS team\n  FROM Employees\n WHERE COUNT(*) >= 1\n GROUP BY emp_name", "pg": "ERROR:  aggregate functions are not allowed in WHERE\nLINE 7:  WHERE COUNT(*) >= 1\n               ^", "my": "ERROR 1111 (HY000) at line 1: Invalid use of group function", "res": "ERROR:  aggregate functions are not allowed in WHERE\nLINE 7:  WHERE COUNT(*) >= 1\n               ^"}, "items_case": {"sql": "SELECT item_name, year,\n       CASE WHEN year <= 2001 THEN price_tax_ex\n            WHEN year >= 2002 THEN price_tax_in END AS price\n  FROM Items", "pg": " Seq Scan on items (actual rows=12 loops=1)\n   Buffers: shared hit=1", "my": "-> Table scan on Items  (cost=1.45 rows=12)", "res": " item_name | year | price \n-----------+------+-------\n カップ    | 2000 |   500\n カップ    | 2001 |   520\n カップ    | 2002 |   630\n カップ    | 2003 |   630\n スプーン  | 2000 |   500\n スプーン  | 2001 |   500\n スプーン  | 2002 |   525\n スプーン  | 2003 |   525\n ナイフ    | 2000 |   600\n ナイフ    | 2001 |   550\n ナイフ    | 2002 |   577\n ナイフ    | 2003 |   420"}, "items_union": {"sql": "SELECT item_name, year, price_tax_ex AS price\n  FROM Items\n WHERE year <= 2001\nUNION\nSELECT item_name, year, price_tax_in AS price\n  FROM Items\n WHERE year >= 2002", "pg": " HashAggregate (actual rows=12 loops=1)\n   Group Key: items.item_name, items.year, items.price_tax_ex\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=2\n   ->  Append (actual rows=12 loops=1)\n         Buffers: shared hit=2\n         ->  Seq Scan on items (actual rows=6 loops=1)\n               Filter: (year <= 2001)\n               Rows Removed by Filter: 6\n               Buffers: shared hit=1\n         ->  Seq Scan on items items_1 (actual rows=6 loops=1)\n               Filter: (year >= 2002)\n               Rows Removed by Filter: 6\n               Buffers: shared hit=1", "my": "-> Table scan on <union temporary>  (cost=4.02..6.29 rows=8)\n    -> Union materialize with deduplication  (cost=3.7..3.7 rows=8)\n        -> Filter: (Items.`year` <= 2001)  (cost=1.45 rows=4)\n            -> Table scan on Items  (cost=1.45 rows=12)\n        -> Filter: (Items.`year` >= 2002)  (cost=1.45 rows=4)\n            -> Table scan on Items  (cost=1.45 rows=12)", "res": " item_name | year | price \n-----------+------+-------\n スプーン  | 2002 |   525\n ナイフ    | 2003 |   420\n ナイフ    | 2000 |   600\n スプーン  | 2000 |   500\n カップ    | 2003 |   630\n スプーン  | 2003 |   525\n ナイフ    | 2001 |   550\n カップ    | 2002 |   630\n スプーン  | 2001 |   500\n カップ    | 2000 |   500\n ナイフ    | 2002 |   577\n カップ    | 2001 |   520"}, "items_union_all": {"sql": "SELECT item_name, year, price_tax_ex AS price\n  FROM Items\n WHERE year <= 2001\nUNION ALL\nSELECT item_name, year, price_tax_in AS price\n  FROM Items\n WHERE year >= 2002", "pg": " Append (actual rows=12 loops=1)\n   Buffers: shared hit=2\n   ->  Seq Scan on items (actual rows=6 loops=1)\n         Filter: (year <= 2001)\n         Rows Removed by Filter: 6\n         Buffers: shared hit=1\n   ->  Seq Scan on items items_1 (actual rows=6 loops=1)\n         Filter: (year >= 2002)\n         Rows Removed by Filter: 6\n         Buffers: shared hit=1", "my": "-> Append  (cost=2.9 rows=8)\n    -> Stream results  (cost=1.45 rows=4)\n        -> Filter: (Items.`year` <= 2001)  (cost=1.45 rows=4)\n            -> Table scan on Items  (cost=1.45 rows=12)\n    -> Stream results  (cost=1.45 rows=4)\n        -> Filter: (Items.`year` >= 2002)  (cost=1.45 rows=4)\n            -> Table scan on Items  (cost=1.45 rows=12)", "res": " item_name | year | price \n-----------+------+-------\n カップ    | 2000 |   500\n カップ    | 2001 |   520\n スプーン  | 2000 |   500\n スプーン  | 2001 |   500\n ナイフ    | 2000 |   600\n ナイフ    | 2001 |   550\n カップ    | 2002 |   630\n カップ    | 2003 |   630\n スプーン  | 2002 |   525\n スプーン  | 2003 |   525\n ナイフ    | 2002 |   577\n ナイフ    | 2003 |   420"}, "items_where": {"sql": "SELECT item_name, year, price_tax_ex AS price\n  FROM Items\n WHERE year <= 2001 OR year >= 2002", "pg": " Seq Scan on items (actual rows=12 loops=1)\n   Filter: ((year <= 2001) OR (year >= 2002))\n   Buffers: shared hit=1", "my": "-> Filter: ((Items.`year` <= 2001) or (Items.`year` >= 2002))  (cost=1.45 rows=6.67)\n    -> Table scan on Items  (cost=1.45 rows=12)", "res": " item_name | year | price \n-----------+------+-------\n カップ    | 2000 |   500\n カップ    | 2001 |   520\n カップ    | 2002 |   600\n カップ    | 2003 |   600\n スプーン  | 2000 |   500\n スプーン  | 2001 |   500\n スプーン  | 2002 |   500\n スプーン  | 2003 |   500\n ナイフ    | 2000 |   600\n ナイフ    | 2001 |   550\n ナイフ    | 2002 |   550\n ナイフ    | 2003 |   400"}, "pop_case": {"sql": "SELECT prefecture,\n       SUM(CASE WHEN sex = '1' THEN pop ELSE 0 END) AS pop_men,\n       SUM(CASE WHEN sex = '2' THEN pop ELSE 0 END) AS pop_wom\n  FROM Population\n GROUP BY prefecture", "pg": " HashAggregate (actual rows=5 loops=1)\n   Group Key: prefecture\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=1\n   ->  Seq Scan on population (actual rows=10 loops=1)\n         Buffers: shared hit=1", "my": "-> Group aggregate: sum((case when (Population.sex = '1') then Population.pop else 0 end)), sum((case when (Population.sex = '2') then Population.pop else 0 end))  (cost=2.25 rows=3.16)\n    -> Index scan on Population using PRIMARY  (cost=1.25 rows=10)", "res": " prefecture | pop_men | pop_wom \n------------+---------+---------\n 愛媛       |     100 |      50\n 高知       |     100 |     100\n 福岡       |      20 |     200\n 香川       |      90 |     100\n 徳島       |      60 |      40"}, "pop_join": {"sql": "SELECT M.prefecture, M.pop AS pop_men, W.pop AS pop_wom\n  FROM Population M\n  JOIN Population W\n    ON M.prefecture = W.prefecture\n WHERE M.sex = '1'\n   AND W.sex = '2'", "pg": " Hash Join (actual rows=5 loops=1)\n   Hash Cond: ((m.prefecture)::text = (w.prefecture)::text)\n   Buffers: shared hit=2\n   ->  Seq Scan on population m (actual rows=5 loops=1)\n         Filter: (sex = '1'::bpchar)\n         Rows Removed by Filter: 5\n         Buffers: shared hit=1\n   ->  Hash (actual rows=5 loops=1)\n         Buckets: 1024  Batches: 1  Memory Usage: 9kB\n         Buffers: shared hit=1\n         ->  Seq Scan on population w (actual rows=5 loops=1)\n               Filter: (sex = '2'::bpchar)\n               Rows Removed by Filter: 5\n               Buffers: shared hit=1", "my": "-> Nested loop inner join  (cost=1.6 rows=1)\n    -> Filter: (M.sex = '1')  (cost=1.25 rows=1)\n        -> Table scan on M  (cost=1.25 rows=10)\n    -> Filter: (W.sex = '2')  (cost=0.35 rows=1)\n        -> Single-row index lookup on W using PRIMARY (prefecture=M.prefecture, sex='2')  (cost=0.35 rows=1)", "res": " prefecture | pop_men | pop_wom \n------------+---------+---------\n 徳島       |      60 |      40\n 香川       |      90 |     100\n 愛媛       |     100 |      50\n 高知       |     100 |     100\n 福岡       |      20 |     200"}, "pop_union": {"sql": "SELECT prefecture, SUM(pop_men) AS pop_men, SUM(pop_wom) AS pop_wom\n  FROM (SELECT prefecture, pop AS pop_men, NULL AS pop_wom\n          FROM Population\n         WHERE sex = '1'\n        UNION\n        SELECT prefecture, NULL AS pop_men, pop AS pop_wom\n          FROM Population\n         WHERE sex = '2') TMP\n GROUP BY prefecture", "pg": " HashAggregate (actual rows=5 loops=1)\n   Group Key: population.prefecture\n   Batches: 1  Memory Usage: 24kB\n   Buffers: shared hit=2\n   ->  HashAggregate (actual rows=10 loops=1)\n         Group Key: population.prefecture, population.pop, (NULL::integer)\n         Batches: 1  Memory Usage: 24kB\n         Buffers: shared hit=2\n         ->  Append (actual rows=10 loops=1)\n               Buffers: shared hit=2\n               ->  Seq Scan on population (actual rows=5 loops=1)\n                     Filter: (sex = '1'::bpchar)\n                     Rows Removed by Filter: 5\n                     Buffers: shared hit=1\n               ->  Seq Scan on population population_1 (actual rows=5 loops=1)\n                     Filter: (sex = '2'::bpchar)\n                     Rows Removed by Filter: 5\n                     Buffers: shared hit=1", "my": "-> Table scan on <temporary>\n    -> Aggregate using temporary table\n        -> Table scan on TMP  (cost=3.96..5.23 rows=2)\n            -> Union materialize with deduplication  (cost=2.7..2.7 rows=2)\n                -> Filter: (Population.sex = '1')  (cost=1.25 rows=1)\n                    -> Table scan on Population  (cost=1.25 rows=10)\n                -> Filter: (Population.sex = '2')  (cost=1.25 rows=1)\n                    -> Table scan on Population  (cost=1.25 rows=10)", "res": " prefecture | pop_men | pop_wom \n------------+---------+---------\n 高知       |     100 |     100\n 徳島       |      60 |      40\n 愛媛       |     100 |      50\n 福岡       |      20 |     200\n 香川       |      90 |     100"}, "te_case": {"sql": "SELECT key_col, name,\n       date_1, flg_1,\n       date_2, flg_2,\n       date_3, flg_3\n  FROM ThreeElements\n WHERE CASE WHEN date_1 = '2013-11-01' THEN flg_1\n            WHEN date_2 = '2013-11-01' THEN flg_2\n            WHEN date_3 = '2013-11-01' THEN flg_3\n            ELSE NULL END = 'T'", "pg": " Seq Scan on threeelements (actual rows=3 loops=1)\n   Filter: (CASE WHEN (date_1 = '2013-11-01'::date) THEN flg_1 WHEN (date_2 = '2013-11-01'::date) THEN flg_2 WHEN (date_3 = '2013-11-01'::date) THEN flg_3 ELSE NULL::bpchar END = 'T'::bpchar)\n   Rows Removed by Filter: 300003\n   Buffers: shared hit=1622", "my": "-> Filter: ((case when (ThreeElements.date_1 = DATE'2013-11-01') then ThreeElements.flg_1 when (ThreeElements.date_2 = DATE'2013-11-01') then ThreeElements.flg_2 when (ThreeElements.date_3 = DATE'2013-11-01') then ThreeElements.flg_3 else NULL end) = 'T')  (cost=30133 rows=299808)\n    -> Table scan on ThreeElements  (cost=30133 rows=299808)", "res": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       1 | a    | 2013-11-01 | T     |            |       |            | \n       2 | b    |            |       | 2013-11-01 | T     |            | \n       5 | e    |            |       |            |       | 2013-11-01 | T", "resg": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       1 | a    | 2013-11-01 | T     |            |       |            | \n       2 | b    |            |       | 2013-11-01 | T     |            | \n       5 | e    |            |       |            |       | 2013-11-01 | T"}, "te_in": {"sql": "SELECT key_col, name,\n       date_1, flg_1,\n       date_2, flg_2,\n       date_3, flg_3\n  FROM ThreeElements\n WHERE ('2013-11-01', 'T')\n       IN ((date_1, flg_1),\n           (date_2, flg_2),\n           (date_3, flg_3))", "pg": " Bitmap Heap Scan on threeelements (actual rows=3 loops=1)\n   Recheck Cond: ((('2013-11-01'::date = date_1) AND ('T'::bpchar = flg_1)) OR (('2013-11-01'::date = date_2) AND ('T'::bpchar = flg_2)) OR (('2013-11-01'::date = date_3) AND ('T'::bpchar = flg_3)))\n   Heap Blocks: exact=1\n   Buffers: shared hit=7\n   ->  BitmapOr (actual rows=0 loops=1)\n         Buffers: shared hit=6\n         ->  Bitmap Index Scan on idx_1 (actual rows=1 loops=1)\n               Index Cond: ((date_1 = '2013-11-01'::date) AND (flg_1 = 'T'::bpchar))\n               Buffers: shared hit=2\n         ->  Bitmap Index Scan on idx_2 (actual rows=1 loops=1)\n               Index Cond: ((date_2 = '2013-11-01'::date) AND (flg_2 = 'T'::bpchar))\n               Buffers: shared hit=2\n         ->  Bitmap Index Scan on idx_3 (actual rows=1 loops=1)\n               Index Cond: ((date_3 = '2013-11-01'::date) AND (flg_3 = 'T'::bpchar))\n               Buffers: shared hit=2", "my": "-> Filter: (('2013-11-01','T') in ((ThreeElements.date_1,ThreeElements.flg_1),(ThreeElements.date_2,ThreeElements.flg_2),(ThreeElements.date_3,ThreeElements.flg_3)))  (cost=30133 rows=299808)\n    -> Table scan on ThreeElements  (cost=30133 rows=299808)", "res": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       1 | a    | 2013-11-01 | T     |            |       |            | \n       2 | b    |            |       | 2013-11-01 | T     |            | \n       5 | e    |            |       |            |       | 2013-11-01 | T", "resg": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       1 | a    | 2013-11-01 | T     |            |       |            | \n       2 | b    |            |       | 2013-11-01 | T     |            | \n       5 | e    |            |       |            |       | 2013-11-01 | T\n       7 | g    | 2013-11-01 | F     |            |       | 2013-11-01 | T"}, "te_or": {"sql": "SELECT key_col, name,\n       date_1, flg_1,\n       date_2, flg_2,\n       date_3, flg_3\n  FROM ThreeElements\n WHERE (date_1 = '2013-11-01' AND flg_1 = 'T')\n    OR (date_2 = '2013-11-01' AND flg_2 = 'T')\n    OR (date_3 = '2013-11-01' AND flg_3 = 'T')", "pg": " Bitmap Heap Scan on threeelements (actual rows=3 loops=1)\n   Recheck Cond: (((date_1 = '2013-11-01'::date) AND (flg_1 = 'T'::bpchar)) OR ((date_2 = '2013-11-01'::date) AND (flg_2 = 'T'::bpchar)) OR ((date_3 = '2013-11-01'::date) AND (flg_3 = 'T'::bpchar)))\n   Heap Blocks: exact=1\n   Buffers: shared hit=7\n   ->  BitmapOr (actual rows=0 loops=1)\n         Buffers: shared hit=6\n         ->  Bitmap Index Scan on idx_1 (actual rows=1 loops=1)\n               Index Cond: ((date_1 = '2013-11-01'::date) AND (flg_1 = 'T'::bpchar))\n               Buffers: shared hit=2\n         ->  Bitmap Index Scan on idx_2 (actual rows=1 loops=1)\n               Index Cond: ((date_2 = '2013-11-01'::date) AND (flg_2 = 'T'::bpchar))\n               Buffers: shared hit=2\n         ->  Bitmap Index Scan on idx_3 (actual rows=1 loops=1)\n               Index Cond: ((date_3 = '2013-11-01'::date) AND (flg_3 = 'T'::bpchar))\n               Buffers: shared hit=2", "my": "-> Filter: (((ThreeElements.flg_1 = 'T') and (ThreeElements.date_1 = DATE'2013-11-01')) or ((ThreeElements.flg_2 = 'T') and (ThreeElements.date_2 = DATE'2013-11-01')) or ((ThreeElements.flg_3 = 'T') and (ThreeElements.date_3 = DATE'2013-11-01')))  (cost=2.37 rows=3)\n    -> Deduplicate rows sorted by row ID  (cost=2.37 rows=3)\n        -> Index range scan on ThreeElements using IDX_1 over (date_1 = '2013-11-01' AND flg_1 = 'T')  (cost=0.36 rows=1)\n        -> Index range scan on ThreeElements using IDX_2 over (date_2 = '2013-11-01' AND flg_2 = 'T')  (cost=0.36 rows=1)\n        -> Index range scan on ThreeElements using IDX_3 over (date_3 = '2013-11-01' AND flg_3 = 'T')  (cost=0.36 rows=1)", "res": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       1 | a    | 2013-11-01 | T     |            |       |            | \n       2 | b    |            |       | 2013-11-01 | T     |            | \n       5 | e    |            |       |            |       | 2013-11-01 | T", "resg": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       1 | a    | 2013-11-01 | T     |            |       |            | \n       2 | b    |            |       | 2013-11-01 | T     |            | \n       5 | e    |            |       |            |       | 2013-11-01 | T\n       7 | g    | 2013-11-01 | F     |            |       | 2013-11-01 | T"}, "te_union": {"sql": "SELECT key_col, name,\n       date_1, flg_1,\n       date_2, flg_2,\n       date_3, flg_3\n  FROM ThreeElements\n WHERE date_1 = '2013-11-01'\n   AND flg_1 = 'T'\nUNION\nSELECT key_col, name,\n       date_1, flg_1,\n       date_2, flg_2,\n       date_3, flg_3\n  FROM ThreeElements\n WHERE date_2 = '2013-11-01'\n   AND flg_2 = 'T'\nUNION\nSELECT key_col, name,\n       date_1, flg_1,\n       date_2, flg_2,\n       date_3, flg_3\n  FROM ThreeElements\n WHERE date_3 = '2013-11-01'\n   AND flg_3 = 'T'", "pg": " HashAggregate (actual rows=3 loops=1)\n   Group Key: threeelements.key_col, threeelements.name, threeelements.date_1, threeelements.flg_1, threeelements.date_2, threeelements.flg_2, threeelements.date_3, threeelements.flg_3\n   Batches: 1  Memory Usage: 32kB\n   Buffers: shared hit=9\n   ->  Append (actual rows=3 loops=1)\n         Buffers: shared hit=9\n         ->  Bitmap Heap Scan on threeelements (actual rows=1 loops=1)\n               Recheck Cond: ((date_1 = '2013-11-01'::date) AND (flg_1 = 'T'::bpchar))\n               Heap Blocks: exact=1\n               Buffers: shared hit=3\n               ->  Bitmap Index Scan on idx_1 (actual rows=1 loops=1)\n                     Index Cond: ((date_1 = '2013-11-01'::date) AND (flg_1 = 'T'::bpchar))\n                     Buffers: shared hit=2\n         ->  Bitmap Heap Scan on threeelements threeelements_1 (actual rows=1 loops=1)\n               Recheck Cond: ((date_2 = '2013-11-01'::date) AND (flg_2 = 'T'::bpchar))\n               Heap Blocks: exact=1\n               Buffers: shared hit=3\n               ->  Bitmap Index Scan on idx_2 (actual rows=1 loops=1)\n                     Index Cond: ((date_2 = '2013-11-01'::date) AND (flg_2 = 'T'::bpchar))\n                     Buffers: shared hit=2\n         ->  Bitmap Heap Scan on threeelements threeelements_2 (actual rows=1 loops=1)\n               Recheck Cond: ((date_3 = '2013-11-01'::date) AND (flg_3 = 'T'::bpchar))\n               Heap Blocks: exact=1\n               Buffers: shared hit=3\n               ->  Bitmap Index Scan on idx_3 (actual rows=1 loops=1)\n                     Index Cond: ((date_3 = '2013-11-01'::date) AND (flg_3 = 'T'::bpchar))\n                     Buffers: shared hit=2", "my": "-> Table scan on <union temporary>  (cost=2.2..3.89 rows=3)\n    -> Union materialize with deduplication  (cost=1.35..1.35 rows=3)\n        -> Index lookup on ThreeElements using IDX_1 (date_1=DATE'2013-11-01', flg_1='T'), with index condition: (ThreeElements.flg_1 = 'T')  (cost=0.35 rows=1)\n        -> Index lookup on ThreeElements using IDX_2 (date_2=DATE'2013-11-01', flg_2='T'), with index condition: (ThreeElements.flg_2 = 'T')  (cost=0.35 rows=1)\n        -> Index lookup on ThreeElements using IDX_3 (date_3=DATE'2013-11-01', flg_3='T'), with index condition: (ThreeElements.flg_3 = 'T')  (cost=0.35 rows=1)", "res": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       5 | e    |            |       |            |       | 2013-11-01 | T\n       2 | b    |            |       | 2013-11-01 | T     |            | \n       1 | a    | 2013-11-01 | T     |            |       |            |", "resg": " key_col | name |   date_1   | flg_1 |   date_2   | flg_2 |   date_3   | flg_3 \n---------+------+------------+-------+------------+-------+------------+-------\n       7 | g    | 2013-11-01 | F     |            |       | 2013-11-01 | T\n       5 | e    |            |       |            |       | 2013-11-01 | T\n       2 | b    |            |       | 2013-11-01 | T     |            | \n       1 | a    | 2013-11-01 | T     |            |       |            |"}};
-
 const T = {
   items: { name: "Items（商品）", cols: ["item_id", "year", "item_name", "price_tax_ex", "price_tax_in"], rows: [
     [100,2000,"カップ",500,525],[100,2001,"カップ",520,546],[100,2002,"カップ",600,630],[100,2003,"カップ",600,630],
@@ -323,8 +321,8 @@ const SLIDES = [
     ],
     takeaway: "結果タブでa・b・e・gが返るか比べてみてください。",
   },
-  { type: "steps" },
-  { type: "answer" },
+  { type: "custom", render: () => renderSteps() },
+  { type: "custom", render: () => renderAnswer() },
   {
     type: "q", sec: "3.4 手続き型と宣言型", title: "SQLの各句に書くもの", ref: "branch",
     prompt: "SELECT・FROM・WHERE・GROUP BY・HAVING・ORDER BYの各句に書くものは、手続き型言語の用語でいうと何？",
@@ -339,9 +337,165 @@ const SLIDES = [
   { type: "end" },
 ];
 
+const STEPS = {
+  caseLane: [
+    ["WHEN date_1 = '2013-11-01'", `<span class="t">真</span>（gのdate_1は2013-11-01）`],
+    ["THEN flg_1", `'F'を返してCASE式はここで終わる`],
+    ["WHEN date_2 … / WHEN date_3 …", `<span class="n">評価されない</span>`],
+    ["'F' = 'T'", `<span class="f">偽</span> → gは除外される`],
+  ],
+  orLane: [
+    ["date_1 = '2013-11-01' AND flg_1 = 'T'", `<span class="t">真</span> AND <span class="f">偽</span> → <span class="f">偽</span>`],
+    ["date_2 = '2013-11-01' AND flg_2 = 'T'", `NULL AND NULL → <span class="n">NULL</span>`],
+    ["date_3 = '2013-11-01' AND flg_3 = 'T'", `<span class="t">真</span> AND <span class="t">真</span> → <span class="t">真</span>`],
+    ["偽 OR NULL OR 真", `<span class="t">真</span> → gは残る`],
+  ],
+};
+let step = 0;
+function renderSteps() {
+  const n = step;
+  const lane = (title, rows, isCase) => `<div class="lane"><h3>${title}</h3>${rows.map(([c, out], k) => {
+    let cls = "step";
+    if (k >= n) cls += " pending";
+    else if (k === n - 1) cls += " now";
+    if (isCase && k === 2 && k < n) cls += " skip";
+    return `<div class="${cls}"><code>${esc(c)}</code><span class="out">${out}</span></div>`;
+  }).join("")}</div>`;
+  return `<div class="head"><span class="eyebrow">演習問題3の解説</span></div>
+    <h2>行gを1ステップずつ評価する</h2>
+    <p class="prompt">行gでは、date_1とdate_3がどちらも2013-11-01です。フラグの値はflg_1 = 'F'、flg_3 = 'T'です。この行をCASE式版とOR版のWHERE条件がどう評価するかを並べます。</p>
+    ${renderTable("threeG").replace(/<tr class="">.*?<\/tr>/gs, "")}
+    <div class="row"><button type="button" class="big-btn" id="stepNext">${n >= 4 ? "最初から" : n === 0 ? "評価を始める" : "次のステップ"}</button><span class="hint">ステップ${n} / 4</span></div>
+    <div class="steps">${lane("CASE式版", STEPS.caseLane, true)}${lane("OR版（UNION・INも同じ判定）", STEPS.orLane, false)}</div>`;
+}
+
+function renderAnswer() {
+  return `<div class="head"><span class="eyebrow">演習問題3の解説</span></div>
+    <h2>同値性が崩れるのはどんなときか</h2>
+    <div class="grid">
+      <div class="col">
+        <p class="prompt">複数のペアが同じ日付を持ち、<b>先に評価されるペアのフラグが'T'でなく、後ろのペアのフラグが'T'</b>のとき、CASE式版だけがその行を返しません。CASE式は最初に真になったWHENで止まり、後ろのペアを見ないからです。</p>
+        <p class="prompt">UNION・OR・INはどのペアについても独立に条件を判定するので、どれか1つのペアが一致すれば行を返します。</p>
+        <p class="takeaway">発展：UNIONをUNION ALLに変えると、条件を満たすペアを2つ持つ行は2回返ります。たとえばdate_1とdate_3が2013-11-01で、flg_1とflg_3がどちらも'T'の行です。UNIONは重複を取り除くので、この行は1回だけ返ります。</p>
+      </div>
+      <div class="col">
+        <div class="label">CASE式版のWHERE条件</div>
+        <pre>${esc(D.te_case.sql.split("WHERE")[1].trim().replace(/^/, "WHERE "))}</pre>
+        <p class="hint">前提（値を持つペアは1つだけ）が守られている間は、どのWHENが真になっても対になるフラグを見るので、4つのクエリは同じ結果を返します。</p>
+      </div>
+    </div>`;
+}
+
+
+const INTRO_BODY = {
+  plan: () => {
+    const r = analyze(D.cc_where.pg, "pg");
+    return `<div class="grid">
+      <div class="col">
+        <p class="prompt">SQLには欲しいデータの条件だけを書きます。データをどの順にどう読むかはDBMSのオプティマイザが決め、その手順を実行計画と呼びます。SQLの先頭にEXPLAINを付けて実行すると、実行計画を表示できます。</p>
+        <p class="prompt">実行計画は木の形をしています。インデントの深い行から先に実行し、その結果を1つ上の行に渡します。</p>
+        <div class="label">よく出てくるノード</div>
+        <div class="tbl-wrap" style="max-height:none"><table>
+          <thead><tr><th>意味</th><th>PostgreSQL</th><th>MySQL</th></tr></thead>
+          <tbody>
+            <tr><td>テーブルを全件読む</td><td>Seq Scan</td><td>Table scan</td></tr>
+            <tr><td>インデックスで探す</td><td>Index Scan<br>Bitmap Index Scan</td><td>Index lookup<br>Index range scan</td></tr>
+            <tr><td>結果を縦に積む</td><td>Append</td><td>Append<br>Union materialize</td></tr>
+            <tr><td>集約、重複除去</td><td>HashAggregate</td><td>Aggregate using temporary table</td></tr>
+            <tr><td>読んだページ数</td><td>Buffers: shared hit</td><td>表示なし</td></tr>
+          </tbody></table></div>
+      </div>
+      <div class="col">
+        <div class="label">例：曜日ごとの来客数を合計する</div>
+        ${pre(D.cc_where.sql)}
+        <div class="label">PostgreSQLの実行計画</div>
+        <pre class="plan">${r.html}</pre>
+        <ol class="points">
+          <li>Seq ScanでCustomerCountの全14行を読み、Filterの条件に合わない6行を捨てます。</li>
+          <li>HashAggregateが残りの8行をdowごとに集約します。</li>
+          <li>Buffers: shared hit=1は、読んだページ数が1だったことを表します。</li>
+        </ol>
+        <div class="legend"><span class="lf">テーブルを全件読む行</span><span class="li">インデックスで探す行</span></div>
+      </div>
+    </div>`;
+  },
+  syntax: () => `<div class="grid">
+      <div class="col">
+        <div class="label">CASE式</div>
+        ${pre("CASE WHEN 条件1 THEN 値1\n     WHEN 条件2 THEN 値2\n     ELSE 値3\nEND")}
+        <ul class="points">
+          <li>WHENを上から順に評価し、最初に真になった分岐の値を返します。残りのWHENは評価しません。</li>
+          <li>どの条件も真にならなければ、ELSEの値を返します。ELSEを省略するとNULLを返します。</li>
+          <li>CASE式は値を返す式です。SELECT句、WHERE句、集約関数の引数など、式を書ける場所ならどこにでも書けます。</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="label">UNION と UNION ALL</div>
+        ${pre("SELECT col_1 FROM Table_A WHERE ...\nUNION ALL\nSELECT col_1 FROM Table_B WHERE ...")}
+        <ul class="points">
+          <li>複数のSELECT文の結果を縦につなぎます。各SELECT文の列の数と型をそろえます。</li>
+          <li>UNIONは重複した行を1つにまとめます。UNION ALLは重複を残したままつなぎます。</li>
+          <li>各SELECT文は、それぞれ別にテーブルを読みます。</li>
+        </ul>
+      </div>
+    </div>`,
+  branch: () => `<p class="prompt">例として、チケットの料金を平日と休日で切り替えて出すとします。Ticketsテーブルは平日料金と休日料金の両方の列を持っています。</p>
+    <div class="grid">
+      <div class="col">
+        <div class="label">文で分岐する（UNION）</div>
+        ${pre("SELECT ticket_date, price_weekday AS price\n  FROM Tickets\n WHERE is_holiday = 0\nUNION ALL\nSELECT ticket_date, price_holiday AS price\n  FROM Tickets\n WHERE is_holiday = 1;")}
+        <p>条件ごとにSELECT文を書き、結果をつなぎます。手続き型の言語でIF文を書くときと同じ発想です。</p>
+      </div>
+      <div class="col">
+        <div class="label">式で分岐する（CASE式）</div>
+        ${pre("SELECT ticket_date,\n       CASE WHEN is_holiday = 0 THEN price_weekday\n            ELSE price_holiday END AS price\n  FROM Tickets;")}
+        <p>1つのSELECT文の中で、行ごとに出す値を切り替えます。SQLの各句に書くのは式なので、分岐もCASE式で書けます。</p>
+      </div>
+    </div>
+    <p class="takeaway">SQLの性能は、ストレージへのI/Oをどれだけ減らせるかで大きく変わります。<b>SELECT文が増えると、テーブルを読む回数も増えやすい。</b>実行計画で、テーブルを何回読んでいるかを確かめます。</p>`,
+  agg: () => `<div class="grid">
+      <div class="col">
+        <div class="label">句を評価する順番</div>
+        <div class="row">${["FROM", "WHERE", "GROUP BY", "HAVING", "SELECT", "ORDER BY"].map(w => `<span class="chip pages">${w}</span>`).join("<span class=\"hint\">→</span>")}</div>
+        <ul class="points">
+          <li>WHERE句は集約の前に行を絞ります。集約関数はWHERE句に書けません。</li>
+          <li>HAVING句とSELECT句は集約の後に評価します。COUNT(*)などの結果をCASE式の条件にも使えます。</li>
+          <li>集約関数の中にCASE式を書くと、条件に合う行だけを集計できます。例：<code>SUM(CASE WHEN sex = '1' THEN pop ELSE 0 END)</code></li>
+          <li>COUNT(式)とSUM(式)はNULLを無視します。COUNT(式)が数えるのは、NULL以外の値の件数です。</li>
+        </ul>
+      </div>
+      <div class="col">
+        <div class="label">インデックスとUNION</div>
+        <ul class="points">
+          <li>インデックスは、列の値から行の場所を引くための索引です。条件に合う行が少ないほど、全件を読むより速く探せます。</li>
+          <li>条件ごとに別のインデックスを使える場合は、UNIONで書くと速くなることもあります。ORやINでもインデックスを使えるかどうかは、DBMSのオプティマイザ次第です。</li>
+          <li>FROMのテーブルが異なるSELECT文の結果をまとめるときは、UNIONを使います。</li>
+        </ul>
+        <p class="takeaway"><b>どの書き方が速いかは、使うDBMSの実行計画で確かめる。</b></p>
+      </div>
+    </div>`,
+};
+
+const CH = {
+  no: 3,
+  store: "sql-jissen-ch3-drill-v2",
+  h1: "SQLにおける条件分岐<br>文から式へ",
+  lede: () => `UNIONとCASE式の書き分けを${QUESTIONS.length}問で確かめます。選択肢を選ぶと、そのクエリの実行計画が表示されます。走査の本数と読んだページ数を比べてください。`,
+  points: [
+    "SQLの性能は、ストレージへのI/Oをどれだけ減らせるかで決まる。",
+    "UNIONで条件分岐を書きたくなったら、冗長性症候群を疑う。",
+    "CASE式やINで書ければ、テーブルの走査を大きく減らせることがある。ただし、どれが速いかは実行計画で確かめる。",
+    "文から式への発想の切り替えを身に付ける。",
+  ],
+  onClick: t => t.id === "stepNext" && ((step = step >= 4 ? 0 : step + 1), true),
+  onReset: () => { step = 0; },
+};
+
+
+
 const QUESTIONS = SLIDES.map((s, i) => s.type === "q" ? i : -1).filter(i => i >= 0);
 const KEYS = "ABCD";
-const STORE = "sql-jissen-ch3-drill-v2";
+const STORE = CH.store;
 let state = { cur: 0, ans: {}, step: 0 };
 try { Object.assign(state, JSON.parse(localStorage.getItem(STORE) || "{}")); } catch (e) {}
 state.cur = Math.min(Math.max(0, state.cur | 0), SLIDES.length - 1);
@@ -448,7 +602,7 @@ function renderQ(s, i) {
           <div class="legend"><span class="lf">テーブルを全件読む</span><span class="li">インデックスで探す</span></div>`;
       } else {
         const res = (s.res === "resg" && d.resg) || d.res;
-        body = `${pills}<div class="label">PostgreSQL 16の結果${s.res === "resg" ? "（gを追加した状態）" : ""}</div><pre>${esc(res)}</pre>`;
+        body = `${pills}<div class="label">PostgreSQL 16の結果${s.res === "resg" ? "（gを追加した状態）" : ""}</div><pre>${esc(res || "（結果の行はありません）")}</pre>${d.myres ? `<div class="label">MySQL 8.0の結果</div><pre>${esc(d.myres)}</pre>` : ""}`;
       }
     }
     panel = `<section class="panel"><div class="tabs" role="tablist">${tabHtml}</div><div class="pbody">${body}</div></section>`;
@@ -468,145 +622,9 @@ function renderQ(s, i) {
     </div>`;
 }
 
-const STEPS = {
-  caseLane: [
-    ["WHEN date_1 = '2013-11-01'", `<span class="t">真</span>（gのdate_1は2013-11-01）`],
-    ["THEN flg_1", `'F'を返してCASE式はここで終わる`],
-    ["WHEN date_2 … / WHEN date_3 …", `<span class="n">評価されない</span>`],
-    ["'F' = 'T'", `<span class="f">偽</span> → gは除外される`],
-  ],
-  orLane: [
-    ["date_1 = '2013-11-01' AND flg_1 = 'T'", `<span class="t">真</span> AND <span class="f">偽</span> → <span class="f">偽</span>`],
-    ["date_2 = '2013-11-01' AND flg_2 = 'T'", `NULL AND NULL → <span class="n">NULL</span>`],
-    ["date_3 = '2013-11-01' AND flg_3 = 'T'", `<span class="t">真</span> AND <span class="t">真</span> → <span class="t">真</span>`],
-    ["偽 OR NULL OR 真", `<span class="t">真</span> → gは残る`],
-  ],
-};
-function renderSteps() {
-  const n = state.step;
-  const lane = (title, rows, isCase) => `<div class="lane"><h3>${title}</h3>${rows.map(([c, out], k) => {
-    let cls = "step";
-    if (k >= n) cls += " pending";
-    else if (k === n - 1) cls += " now";
-    if (isCase && k === 2 && k < n) cls += " skip";
-    return `<div class="${cls}"><code>${esc(c)}</code><span class="out">${out}</span></div>`;
-  }).join("")}</div>`;
-  return `<div class="head"><span class="eyebrow">演習問題3の解説</span></div>
-    <h2>行gを1ステップずつ評価する</h2>
-    <p class="prompt">行gでは、date_1とdate_3がどちらも2013-11-01です。フラグの値はflg_1 = 'F'、flg_3 = 'T'です。この行をCASE式版とOR版のWHERE条件がどう評価するかを並べます。</p>
-    ${renderTable("threeG").replace(/<tr class="">.*?<\/tr>/gs, "")}
-    <div class="row"><button type="button" class="big-btn" id="stepNext">${n >= 4 ? "最初から" : n === 0 ? "評価を始める" : "次のステップ"}</button><span class="hint">ステップ${n} / 4</span></div>
-    <div class="steps">${lane("CASE式版", STEPS.caseLane, true)}${lane("OR版（UNION・INも同じ判定）", STEPS.orLane, false)}</div>`;
-}
-
-function renderAnswer() {
-  return `<div class="head"><span class="eyebrow">演習問題3の解説</span></div>
-    <h2>同値性が崩れるのはどんなときか</h2>
-    <div class="grid">
-      <div class="col">
-        <p class="prompt">複数のペアが同じ日付を持ち、<b>先に評価されるペアのフラグが'T'でなく、後ろのペアのフラグが'T'</b>のとき、CASE式版だけがその行を返しません。CASE式は最初に真になったWHENで止まり、後ろのペアを見ないからです。</p>
-        <p class="prompt">UNION・OR・INはどのペアについても独立に条件を判定するので、どれか1つのペアが一致すれば行を返します。</p>
-        <p class="takeaway">発展：UNIONをUNION ALLに変えると、条件を満たすペアを2つ持つ行は2回返ります。たとえばdate_1とdate_3が2013-11-01で、flg_1とflg_3がどちらも'T'の行です。UNIONは重複を取り除くので、この行は1回だけ返ります。</p>
-      </div>
-      <div class="col">
-        <div class="label">CASE式版のWHERE条件</div>
-        <pre>${esc(D.te_case.sql.split("WHERE")[1].trim().replace(/^/, "WHERE "))}</pre>
-        <p class="hint">前提（値を持つペアは1つだけ）が守られている間は、どのWHENが真になっても対になるフラグを見るので、4つのクエリは同じ結果を返します。</p>
-      </div>
-    </div>`;
-}
-
 const INTROS = SLIDES.filter(s => s.type === "intro");
 const slideOf = id => SLIDES.findIndex(s => s.type === "intro" && s.id === id);
 const pre = s => `<pre>${esc(s)}</pre>`;
-const INTRO_BODY = {
-  plan: () => {
-    const r = analyze(D.cc_where.pg, "pg");
-    return `<div class="grid">
-      <div class="col">
-        <p class="prompt">SQLには欲しいデータの条件だけを書きます。データをどの順にどう読むかはDBMSのオプティマイザが決め、その手順を実行計画と呼びます。SQLの先頭にEXPLAINを付けて実行すると、実行計画を表示できます。</p>
-        <p class="prompt">実行計画は木の形をしています。インデントの深い行から先に実行し、その結果を1つ上の行に渡します。</p>
-        <div class="label">よく出てくるノード</div>
-        <div class="tbl-wrap" style="max-height:none"><table>
-          <thead><tr><th>意味</th><th>PostgreSQL</th><th>MySQL</th></tr></thead>
-          <tbody>
-            <tr><td>テーブルを全件読む</td><td>Seq Scan</td><td>Table scan</td></tr>
-            <tr><td>インデックスで探す</td><td>Index Scan<br>Bitmap Index Scan</td><td>Index lookup<br>Index range scan</td></tr>
-            <tr><td>結果を縦に積む</td><td>Append</td><td>Append<br>Union materialize</td></tr>
-            <tr><td>集約、重複除去</td><td>HashAggregate</td><td>Aggregate using temporary table</td></tr>
-            <tr><td>読んだページ数</td><td>Buffers: shared hit</td><td>表示なし</td></tr>
-          </tbody></table></div>
-      </div>
-      <div class="col">
-        <div class="label">例：曜日ごとの来客数を合計する</div>
-        ${pre(D.cc_where.sql)}
-        <div class="label">PostgreSQLの実行計画</div>
-        <pre class="plan">${r.html}</pre>
-        <ol class="points">
-          <li>Seq ScanでCustomerCountの全14行を読み、Filterの条件に合わない6行を捨てます。</li>
-          <li>HashAggregateが残りの8行をdowごとに集約します。</li>
-          <li>Buffers: shared hit=1は、読んだページ数が1だったことを表します。</li>
-        </ol>
-        <div class="legend"><span class="lf">テーブルを全件読む行</span><span class="li">インデックスで探す行</span></div>
-      </div>
-    </div>`;
-  },
-  syntax: () => `<div class="grid">
-      <div class="col">
-        <div class="label">CASE式</div>
-        ${pre("CASE WHEN 条件1 THEN 値1\n     WHEN 条件2 THEN 値2\n     ELSE 値3\nEND")}
-        <ul class="points">
-          <li>WHENを上から順に評価し、最初に真になった分岐の値を返します。残りのWHENは評価しません。</li>
-          <li>どの条件も真にならなければ、ELSEの値を返します。ELSEを省略するとNULLを返します。</li>
-          <li>CASE式は値を返す式です。SELECT句、WHERE句、集約関数の引数など、式を書ける場所ならどこにでも書けます。</li>
-        </ul>
-      </div>
-      <div class="col">
-        <div class="label">UNION と UNION ALL</div>
-        ${pre("SELECT col_1 FROM Table_A WHERE ...\nUNION ALL\nSELECT col_1 FROM Table_B WHERE ...")}
-        <ul class="points">
-          <li>複数のSELECT文の結果を縦につなぎます。各SELECT文の列の数と型をそろえます。</li>
-          <li>UNIONは重複した行を1つにまとめます。UNION ALLは重複を残したままつなぎます。</li>
-          <li>各SELECT文は、それぞれ別にテーブルを読みます。</li>
-        </ul>
-      </div>
-    </div>`,
-  branch: () => `<p class="prompt">例として、チケットの料金を平日と休日で切り替えて出すとします。Ticketsテーブルは平日料金と休日料金の両方の列を持っています。</p>
-    <div class="grid">
-      <div class="col">
-        <div class="label">文で分岐する（UNION）</div>
-        ${pre("SELECT ticket_date, price_weekday AS price\n  FROM Tickets\n WHERE is_holiday = 0\nUNION ALL\nSELECT ticket_date, price_holiday AS price\n  FROM Tickets\n WHERE is_holiday = 1;")}
-        <p>条件ごとにSELECT文を書き、結果をつなぎます。手続き型の言語でIF文を書くときと同じ発想です。</p>
-      </div>
-      <div class="col">
-        <div class="label">式で分岐する（CASE式）</div>
-        ${pre("SELECT ticket_date,\n       CASE WHEN is_holiday = 0 THEN price_weekday\n            ELSE price_holiday END AS price\n  FROM Tickets;")}
-        <p>1つのSELECT文の中で、行ごとに出す値を切り替えます。SQLの各句に書くのは式なので、分岐もCASE式で書けます。</p>
-      </div>
-    </div>
-    <p class="takeaway">SQLの性能は、ストレージへのI/Oをどれだけ減らせるかで大きく変わります。<b>SELECT文が増えると、テーブルを読む回数も増えやすい。</b>実行計画で、テーブルを何回読んでいるかを確かめます。</p>`,
-  agg: () => `<div class="grid">
-      <div class="col">
-        <div class="label">句を評価する順番</div>
-        <div class="row">${["FROM", "WHERE", "GROUP BY", "HAVING", "SELECT", "ORDER BY"].map(w => `<span class="chip pages">${w}</span>`).join("<span class=\"hint\">→</span>")}</div>
-        <ul class="points">
-          <li>WHERE句は集約の前に行を絞ります。集約関数はWHERE句に書けません。</li>
-          <li>HAVING句とSELECT句は集約の後に評価します。COUNT(*)などの結果をCASE式の条件にも使えます。</li>
-          <li>集約関数の中にCASE式を書くと、条件に合う行だけを集計できます。例：<code>SUM(CASE WHEN sex = '1' THEN pop ELSE 0 END)</code></li>
-          <li>COUNT(式)とSUM(式)はNULLを無視します。COUNT(式)が数えるのは、NULL以外の値の件数です。</li>
-        </ul>
-      </div>
-      <div class="col">
-        <div class="label">インデックスとUNION</div>
-        <ul class="points">
-          <li>インデックスは、列の値から行の場所を引くための索引です。条件に合う行が少ないほど、全件を読むより速く探せます。</li>
-          <li>条件ごとに別のインデックスを使える場合は、UNIONで書くと速くなることもあります。ORやINでもインデックスを使えるかどうかは、DBMSのオプティマイザ次第です。</li>
-          <li>FROMのテーブルが異なるSELECT文の結果をまとめるときは、UNIONを使います。</li>
-        </ul>
-        <p class="takeaway"><b>どの書き方が速いかは、使うDBMSの実行計画で確かめる。</b></p>
-      </div>
-    </div>`,
-};
 function renderIntro(s) {
   const n = INTROS.indexOf(s) + 1;
   const back = state.back !== undefined && SLIDES[state.back]?.type === "q"
@@ -617,16 +635,17 @@ function renderIntro(s) {
 }
 
 function renderCover() {
-  return `<div class="eyebrow">［改訂新版］SQL実践入門 第3章　演習ドリル</div>
-    <h1>SQLにおける条件分岐<br>文から式へ</h1>
-    <p class="lede">UNIONとCASE式の書き分けを${QUESTIONS.length}問で確かめます。選択肢を選ぶと、そのクエリの実行計画が表示されます。走査の本数と読んだページ数を比べてください。</p>
-    <p class="lede">最初の4枚に3章の基礎をまとめたので、本を読む前でも解けます。各問題の上にあるボタンから、関連する基礎のスライドを開けます。</p>
+  return `<div class="eyebrow">［改訂新版］SQL実践入門 第${CH.no}章　演習ドリル</div>
+    <h1>${CH.h1}</h1>
+    <p class="lede">${CH.lede()}</p>
+    <p class="lede">最初の${INTROS.length}枚に${CH.no}章の基礎をまとめたので、本を読む前でも解けます。各問題の上にあるボタンから、関連する基礎のスライドを開けます。</p>
     <div class="cover-grid">
       <div class="card"><h3>実測の実行計画</h3><p>本書のサンプルデータを使い、PostgreSQL 16とMySQL 8.0で実際にEXPLAINを実行して取得しました。</p></div>
       <div class="card"><h3>色の意味</h3><p><span style="color:var(--scan);font-weight:700">オレンジ</span>はテーブルを全件読む行、<span style="color:var(--accent);font-weight:700">青</span>はインデックスで探す行です。</p></div>
       <div class="card"><h3>操作</h3><p>← → でスライド送り、1〜4で回答。回答はこのブラウザにだけ保存されます。</p></div>
     </div>
-    <div class="row"><button type="button" class="big-btn" id="start">基礎から読む →</button><button type="button" class="pill" id="startQ">問題から解く</button>${Object.keys(state.ans).length ? `<button type="button" class="pill" id="reset">回答をすべてリセット</button>` : ""}</div>`;
+    <div class="row"><button type="button" class="big-btn" id="start">基礎から読む →</button><button type="button" class="pill" id="startQ">問題から解く</button>${Object.keys(state.ans).length ? `<button type="button" class="pill" id="reset">回答をすべてリセット</button>` : ""}</div>
+    <p class="hint"><a href="../">ほかの章を見る</a></p>`;
 }
 
 function renderEnd() {
@@ -636,15 +655,10 @@ function renderEnd() {
     const r = a === undefined ? ["na", "未回答"] : SLIDES[i].choices[a].ok ? ["ok", "正解"] : ["ng", "不正解"];
     return `<li><span class="r ${r[0]}">${r[1]}</span><span>Q${n + 1} ${esc(SLIDES[i].title)}</span></li>`;
   }).join("");
-  return `<div class="head"><span class="eyebrow">第3章のまとめ</span></div>
+  return `<div class="head"><span class="eyebrow">第${CH.no}章のまとめ</span></div>
     <div class="row" style="gap:18px;align-items:flex-end"><span class="score">${okCount} / ${QUESTIONS.length}</span><span class="hint">正解数</span></div>
     <ul class="recap">${recap}</ul>
-    <ul class="points">
-      <li>SQLの性能は、ストレージへのI/Oをどれだけ減らせるかで決まる。</li>
-      <li>UNIONで条件分岐を書きたくなったら、冗長性症候群を疑う。</li>
-      <li>CASE式やINで書ければ、テーブルの走査を大きく減らせることがある。ただし、どれが速いかは実行計画で確かめる。</li>
-      <li>文から式への発想の切り替えを身に付ける。</li>
-    </ul>
+    <ul class="points">${CH.points.map(p => `<li>${p}</li>`).join("")}</ul>
     <button type="button" class="big-btn" id="reset">回答をリセットして最初から</button>`;
 }
 
@@ -653,7 +667,7 @@ function render() {
   const s = SLIDES[state.cur];
   stage.className = "slide" + (s.type === "cover" ? " cover" : "");
   stage.innerHTML = s.type === "cover" ? renderCover() : s.type === "q" ? renderQ(s, state.cur) : s.type === "intro" ? renderIntro(s)
-    : s.type === "steps" ? renderSteps() : s.type === "answer" ? renderAnswer() : renderEnd();
+    : s.type === "custom" ? s.render() : renderEnd();
   document.getElementById("prev").disabled = state.cur === 0;
   document.getElementById("next").disabled = state.cur === SLIDES.length - 1;
   document.getElementById("pos").textContent = `${state.cur + 1} / ${SLIDES.length}`;
@@ -691,8 +705,8 @@ document.addEventListener("click", e => {
   else if (t.dataset.ref) { state.back = state.cur; go(slideOf(t.dataset.ref)); }
   else if (t.id === "back") { const b = state.back; delete state.back; go(b); }
   else if (t.id === "retry") { delete state.ans[state.cur]; delete view[state.cur]; render(); }
-  else if (t.id === "reset") { state.ans = {}; state.step = 0; for (const k in view) delete view[k]; go(0); }
-  else if (t.id === "stepNext") { state.step = state.step >= 4 ? 0 : state.step + 1; render(); }
+  else if (t.id === "reset") { state.ans = {}; CH.onReset?.(); for (const k in view) delete view[k]; go(0); }
+  else if (CH.onClick?.(t)) render();
   else if (t.dataset.go) go(+t.dataset.go);
   else if (t.dataset.choice) choose(+t.dataset.choice);
   else if (t.dataset.tab && v) { v.tab = t.dataset.tab; render(); }
