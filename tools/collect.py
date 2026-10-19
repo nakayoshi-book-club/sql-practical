@@ -59,11 +59,12 @@ def my_plan(text):
     return "\n".join(lines).replace("\\n", "\n") or text
 
 
-def cap(text):
+def cap(text, frame=2):
+    # frame は見出しや罫線など、データ行以外の行数。psql は2行、mysql の表形式は4行
     lines = text.splitlines()
     if len(lines) <= RESULT_LINES:
         return text
-    return "\n".join(lines[:RESULT_LINES]) + f"\n（以下略。全{len(lines) - 2:,}行）"
+    return "\n".join(lines[:RESULT_LINES]) + f"\n（以下略。全{len(lines) - frame:,}行）"
 
 
 def setup(chapter, sql_dir):
@@ -115,7 +116,7 @@ def main():
         d = data[q.stem]
         d["res"] = config.get("res", {}).get(q.stem) or cap(pg(chapter, pre(q, "pg") + d["sql"] + ";"))
         if q.stem in config.get("myres", []):
-            d["myres"] = cap(my(chapter, pre(q, "my") + d["sql"] + ";"))
+            d["myres"] = cap(my(chapter, pre(q, "my") + d["sql"] + ";"), 4)
     if "resg" in config:
         for name in config["resg"]["queries"]:
             data[name]["resg"] = cap(pg(chapter, f"BEGIN; {config['resg']['pre']} {data[name]['sql']}; ROLLBACK;"))
