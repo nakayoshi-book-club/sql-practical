@@ -1,0 +1,11 @@
+CREATE TABLE Weights (student_id CHAR(4) PRIMARY KEY, weight INTEGER);
+INSERT INTO Weights VALUES ('A100',50),('A101',55),('A124',55),('B343',60),('B346',72),('C563',72),('C345',72);
+
+CREATE TABLE Weights2 (class INTEGER NOT NULL, student_id CHAR(4) NOT NULL, weight INTEGER NOT NULL, PRIMARY KEY (class, student_id));
+INSERT INTO Weights2 VALUES (1,'100',50),(1,'101',55),(1,'102',56),(2,'100',60),(2,'101',72),(2,'102',73),(2,'103',73);
+
+CREATE TABLE Weights3 (class INTEGER NOT NULL, student_id CHAR(4) NOT NULL, weight INTEGER NOT NULL, seq INTEGER, PRIMARY KEY (class, student_id));
+INSERT INTO Weights3 VALUES (1,'100',50,NULL),(1,'101',55,NULL),(1,'102',56,NULL),(2,'100',60,NULL),(2,'101',72,NULL),(2,'102',73,NULL),(2,'103',73,NULL);
+
+CREATE TABLE Numbers (num INTEGER PRIMARY KEY);
+INSERT INTO Numbers VALUES (1),(3),(4),(7),(8),(9),(12);
