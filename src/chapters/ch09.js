@@ -62,8 +62,22 @@ const SLIDES = [
     takeaway: "<b>「NULLでない行に限る」という条件があるから、NULLの連続を飛び越えて遡れる。</b>1行ずつ回すぐるぐる系にしなくても、1つのUPDATE文で全行を埋められます。",
   },
   {
+    type: "q", sec: "9.1 更新は効率的に", title: "ぐるぐる系と1つのSQL文", ref: "plan", table: ["omit"], tableNote: OMIT_NOTE,
+    prompt: "OmitTblのNULLを埋める処理を、2通りで書いた。アプリからデータベースに送るSQL文の数は、それぞれ何回？",
+    code: "-- ぐるぐる系：アプリでループを回し、1行ずつUPDATEする\nrows = SELECT keycol, seq, val FROM OmitTbl ORDER BY keycol, seq;\nfor row in rows:\n    if row.val is NULL:\n        UPDATE OmitTbl SET val = :prev\n         WHERE keycol = :row.keycol AND seq = :row.seq;\n    else:\n        prev = row.val\n\n-- 1つのSQL文：本書の解\nUPDATE OmitTbl\n   SET val = (SELECT val\n                FROM OmitTbl OT1\n               WHERE OT1.keycol = OmitTbl.keycol\n                 AND OT1.seq = (SELECT MAX(seq)\n                                  FROM OmitTbl OT2\n                                 WHERE OT2.keycol = OmitTbl.keycol\n                                   AND OT2.seq < OmitTbl.seq\n                                   AND OT2.val IS NOT NULL))\n WHERE val IS NULL;",
+    choices: [
+      { text: "ぐるぐる系は7回（SELECTが1回、UPDATEが6回）、本書の解は1回", ok: true, note: "ぐるぐる系は、全行を読むSELECTを1回送り、NULLの6行それぞれでUPDATEを1回ずつ送ります。本書の解は、UPDATE文を1回送るだけです。" },
+      { text: "ぐるぐる系は13回（SELECTが1回、全12行にUPDATE）、本書の解は1回", ok: false, note: "ifで分岐しているので、UPDATEを送るのはvalがNULLの6行だけです。" },
+      { text: "ぐるぐる系は7回、本書の解も7回（NULLの行ごとにサブクエリを送る）", ok: false, note: "本書の解のサブクエリは、データベースの中で動きます。アプリから送るのは、UPDATE文の1回だけです。" },
+      { text: "どちらも1回。ぐるぐる系も、データベースがまとめて実行する", ok: false, note: "ループはアプリの側にあるので、データベースは1行分のUPDATEを1つずつ受け取ります。全体で何をしたいのかは、データベースからは見えません。" },
+    ],
+    show: [{ q: "fill_corr", tag: "本書の解" }],
+    takeaway: "<b>ぐるぐる系は「この1行を直せ」を行の数だけ送り、1つのSQL文は「こういう結果にしろ」を1回送る。</b>ループを回すのがアプリかデータベースかの違いです。本書の解でも、データベースの中では相関サブクエリが行ごとに動いており、その回数は実行計画のloopsで確かめられます。",
+  },
+  {
     type: "q", sec: "9.1 更新は効率的に", title: "相関サブクエリは何回動いたか", ref: "plan", table: ["omit"], tableNote: OMIT_NOTE,
     prompt: "本書の相関サブクエリの解を、PostgreSQLで実行した。実行計画のSubPlan 2（OT1を読むサブクエリ）は何回実行された？",
+    code: "UPDATE OmitTbl\n   SET val = (SELECT val\n                FROM OmitTbl OT1\n               WHERE OT1.keycol = OmitTbl.keycol\n                 AND OT1.seq = (SELECT MAX(seq)\n                                  FROM OmitTbl OT2\n                                 WHERE OT2.keycol = OmitTbl.keycol\n                                   AND OT2.seq < OmitTbl.seq\n                                   AND OT2.val IS NOT NULL))\n WHERE val IS NULL;",
     choices: [
       { text: "1回", ok: false, note: "相関サブクエリは外側の行の値（OmitTbl.keycolとseq）を使うので、更新する行ごとに実行します。" },
       { text: "2回（keycolごと）", ok: false, note: "PostgreSQLは同じkeycolの結果を使い回しません。" },
@@ -74,21 +88,9 @@ const SLIDES = [
     takeaway: "<b>相関サブクエリのUPDATEは、更新する行の数だけサブクエリを実行する。</b>本書のOracleの計画では、内側の2つのサブクエリが主キーのインデックスを使っています。PostgreSQLも、行数が増えればインデックスを使う計画になる可能性があります。",
   },
   {
-    type: "q", sec: "9.1 更新は効率的に", title: "IGNORE NULLS", ref: "fill", table: ["omit"],
-    prompt: "本書は、FIRST_VALUE(val) IGNORE NULLSというウィンドウ関数で、相関サブクエリをなくす解も示す。PostgreSQL 16とMySQL 8.0で、このSELECTを実行するとどうなった？",
-    choices: [
-      { text: "どちらでも、NULLを飛ばした値が返った", ok: false, note: "実行計画タブのとおり、どちらもエラーです。" },
-      { text: "PostgreSQLは構文エラー、MySQLは未対応のエラーになった", ok: true, note: "PostgreSQLは「syntax error at or near \"NULLS\"」、MySQLは「This version of MySQL doesn't yet support 'IGNORE NULLS'」で止まりました。本書のとおり、主要なDBMSではOracleやSQL Serverでしか使えません。" },
-      { text: "PostgreSQLだけが動いた", ok: false, note: "PostgreSQL 16は、IGNORE NULLSに対応していません。" },
-      { text: "どちらも、NULLをそのまま返した", ok: false, note: "オプションを無視して実行することはなく、エラーになります。" },
-    ],
-    show: [{ q: "fill_ignore", tag: "IGNORE NULLS" }],
-    takeaway: "本書のOracleの計画では、<b>IGNORE NULLSを使うと相関サブクエリが消え、OmitTblへのアクセスが減ります</b>（WINDOW SORTとHASH JOIN OUTER）。便利なオプションですが、使えるDBMSが限られます。なお、既定のフレーム（パーティションの先頭から現在行まで）では、FIRST_VALUEはパーティションで最初のNULLでない値を返すので、Aのseq 5が70ではなく50になります。<b>直前の値で埋めるなら、LAST_VALUE(val) IGNORE NULLSが正しい</b>と考えられます。",
-  },
-  {
     type: "q", sec: "9.1 更新は効率的に", title: "逆にNULLを作る", ref: "fill", table: ["omit_filled"], tableNote: FILLED_NOTE,
     prompt: "埋め立て後の表から、省略された元の表に戻すUPDATE文は、CASE式の比較の中にサブクエリを丸ごと書いている。こう書けるのはなぜ？",
-    code: "SET val = CASE WHEN val = (SELECT val FROM OmitFilled O1 WHERE ...)\n               THEN NULL\n               ELSE val END",
+    code: "UPDATE OmitFilled\n   SET val = CASE WHEN val\n                    = (SELECT val\n                         FROM OmitFilled O1\n                        WHERE O1.keycol = OmitFilled.keycol\n                          AND O1.seq\n                                = (SELECT MAX(seq)\n                                     FROM OmitFilled O2\n                                    WHERE O2.keycol = OmitFilled.keycol\n                                      AND O2.seq < OmitFilled.seq))\n                  THEN NULL\n                  ELSE val END;",
     choices: [
       { text: "サブクエリが値を1つだけ返すスカラサブクエリだから", ok: true, note: "スカラサブクエリは1つの値として扱えるので、式を書ける場所ならどこにでも書けます。1つ前の行と同じ値ならNULLに、違えば元の値のままにします。" },
       { text: "CASE式の中では、サブクエリが複数行を返してもよいから", ok: false, note: "複数行を返すとエラーになります。主キー(keycol, seq)で1行に絞っているので、1つの値になります。" },
@@ -101,6 +103,7 @@ const SLIDES = [
   {
     type: "q", sec: "9.1 更新は効率的に", title: "LAGで書き換えた逆演算の計画", ref: "fill", table: ["omit_filled"], tableNote: FILLED_NOTE,
     prompt: "逆演算を、共通表式（WITH句）の中のLAG関数で書き換えた。PostgreSQLの実行計画で、WindowAgg（LAGの計算）は何回実行された？",
+    code: "WITH VIEW_LAG (keycol, seq, pre_val)\n  AS (SELECT keycol, seq,\n             LAG(val, 1) OVER (PARTITION BY keycol\n                                   ORDER BY seq)\n        FROM OmitFilled)\nUPDATE OmitFilled\n   SET val = CASE WHEN (SELECT pre_val\n                          FROM VIEW_LAG\n                         WHERE VIEW_LAG.keycol = OmitFilled.keycol\n                           AND VIEW_LAG.seq = OmitFilled.seq) = val\n                  THEN NULL\n                  ELSE val END;",
     choices: [
       { text: "1回。表を1回並べて全行のLAGを計算し、それを使い回した", ok: false, note: "そうなっていれば理想的ですが、WindowAggはSubPlan 1の下にあります。" },
       { text: "2回。keycolごとに1回ずつ計算した", ok: false, note: "計算するのはkeycolが同じ6行ずつですが、回数は更新する行の数です。" },
@@ -146,6 +149,7 @@ const SLIDES = [
   {
     type: "q", sec: "9.2 行から列への更新", title: "NOT NULLの列への更新", ref: "nn", table: ["score_rows", "score_cols_nn"], tableNote: NN_NOTE,
     prompt: "行式の解（COALESCEなし）を、NOT NULL制約の付いたScoreColsNNに対して実行した。PostgreSQLは、どの行の値で止まった？",
+    code: "UPDATE ScoreColsNN\n   SET (score_en, score_nl, score_mt)\n         = (SELECT MAX(CASE WHEN subject = '英語'\n                            THEN score\n                            ELSE NULL END) AS score_en,\n                   MAX(CASE WHEN subject = '国語'\n                            THEN score\n                            ELSE NULL END) AS score_nl,\n                   MAX(CASE WHEN subject = '数学'\n                            THEN score\n                            ELSE NULL END) AS score_mt\n              FROM ScoreRows SR\n             WHERE SR.student_id = ScoreColsNN.student_id);",
     choices: [
       { text: "D004（ScoreRowsに1行もない生徒）", ok: false, note: "D004も3列がNULLになるので違反しますが、PostgreSQLが先に処理したのはB002です。" },
       { text: "B002の数学（生徒はいるが、その教科の行がない）", ok: true, note: "「null value in column \"score_mt\" ... Failing row contains (B002, 77, 60, null)」です。B002には数学の行がないので、MAXの結果がNULLになります。" },
@@ -158,6 +162,7 @@ const SLIDES = [
   {
     type: "q", sec: "9.2 行から列への更新", title: "EXISTSを外すと", ref: "nn", table: ["score_rows", "score_cols_nn"], tableNote: NN_NOTE,
     prompt: "NOT NULLに対応した行式の解から、外側のWHERE EXISTS（ScoreRowsに生徒がいる行に限る）を外した。PostgreSQLではどうなった？",
+    code: "UPDATE ScoreColsNN\n   SET (score_en, score_nl, score_mt)\n         = (SELECT COALESCE(MAX(CASE WHEN subject = '英語'\n                                     THEN score\n                                     ELSE NULL END), 0) AS score_en,\n                   COALESCE(MAX(CASE WHEN subject = '国語'\n                                     THEN score\n                                     ELSE NULL END), 0) AS score_nl,\n                   COALESCE(MAX(CASE WHEN subject = '数学'\n                                     THEN score\n                                     ELSE NULL END), 0) AS score_mt\n              FROM ScoreRows SR\n             WHERE SR.student_id = ScoreColsNN.student_id);",
     choices: [
       { text: "D004の行でNOT NULL違反のエラーになった", ok: false, note: "エラーにはなりませんでした。結果タブのとおり、UPDATE 4です。" },
       { text: "エラーにならず、D004の3列も0で更新された", ok: true, note: "GROUP BYのない集約は、対象が0行でも1行を返します。D004ではMAXがNULLになり、それをCOALESCEが0にするので、D004も0で上書きされます。" },
@@ -168,39 +173,17 @@ const SLIDES = [
     takeaway: "このデータではD004の初期値も0なので、見た目は変わりません。<b>EXISTSが防いでいるのはエラーよりも、更新元にいない行を0で上書きしてしまうこと</b>です。D004に別の値が入っていたら消えてしまいます。PostgreSQLの計画では、EXISTSがHashAggregateとHash Joinになって加わっています（本書のOracleではHASH JOIN SEMI）。",
   },
   {
-    type: "q", sec: "9.2 行から列への更新", title: "本書のMERGE文をPostgreSQLで", ref: "nn", table: ["score_rows", "score_cols_nn"], tableNote: NN_NOTE,
-    prompt: "本書は、MERGE文で複数列を更新する解を「Oracle、Db2でのみ利用可能」としている。本書のリストをPostgreSQL 16でそのまま実行するとどうなった？",
-    choices: [
-      { text: "MERGE文に対応していないので、構文エラーになった", ok: false, note: "PostgreSQLはバージョン15からMERGE文に対応しています（SQL Serverも2008から対応しています）。MERGE文そのものは動きます。" },
-      { text: "SET句の列名に表名（ScoreColsNN.）を付けているので、エラーになった", ok: true, note: "「column \"scorecolsnn\" of relation \"scorecolsnn\" does not exist」です。PostgreSQLのMERGE文では、更新する列の名前に表名を付けられません。表名を外すと動き、結果は行式の解と同じでした。" },
-      { text: "そのまま動き、D004も含めて4行を更新した", ok: false, note: "そのままではエラーです。表名を外した版も、ONで一致しないD004は更新せず、MERGE 3でした。" },
-      { text: "NOT NULL違反のエラーになった", ok: false, note: "COALESCEで0にしているので、NOT NULLには違反しません。" },
-    ],
-    show: [{ q: "merge_book", tag: "本書のまま" }, { q: "merge_fix", tag: "列名の表名を外す" }],
-    takeaway: "<b>MERGE文は、PostgreSQL 15以降でも使える。</b>ただし構文には実装ごとの違いが残ります。MySQL 8.0はMERGE文に対応していません。",
-  },
-  {
     type: "q", sec: "9.2 行から列への更新", title: "MERGE文を使う利点", ref: "nn", table: ["score_rows", "score_cols_nn"], tableNote: NN_NOTE,
     prompt: "UPDATE文の代わりにMERGE文を使う利点として、本書が挙げるものはどれ？",
+    code: "-- UPDATE文（行式）\nUPDATE ScoreColsNN\n   SET (score_en, score_nl, score_mt)\n         = (SELECT COALESCE(MAX(CASE WHEN subject = '英語'\n                                     THEN score\n                                     ELSE NULL END), 0) AS score_en,\n                   COALESCE(MAX(CASE WHEN subject = '国語'\n                                     THEN score\n                                     ELSE NULL END), 0) AS score_nl,\n                   COALESCE(MAX(CASE WHEN subject = '数学'\n                                     THEN score\n                                     ELSE NULL END), 0) AS score_mt\n              FROM ScoreRows SR\n             WHERE SR.student_id = ScoreColsNN.student_id)\n WHERE EXISTS (SELECT *\n                 FROM ScoreRows\n                WHERE student_id = ScoreColsNN.student_id);\n\n-- MERGE文\nMERGE INTO ScoreColsNN\n   USING (SELECT student_id,\n                 COALESCE(MAX(CASE WHEN subject = '英語'\n                                   THEN score\n                                   ELSE NULL END), 0) AS score_en,\n                 COALESCE(MAX(CASE WHEN subject = '国語'\n                                   THEN score\n                                   ELSE NULL END), 0) AS score_nl,\n                 COALESCE(MAX(CASE WHEN subject = '数学'\n                                   THEN score\n                                   ELSE NULL END), 0) AS score_mt\n            FROM ScoreRows\n           GROUP BY student_id) SR\n      ON (ScoreColsNN.student_id = SR.student_id)\n   WHEN MATCHED THEN\n        UPDATE SET score_en = SR.score_en,\n                   score_nl = SR.score_nl,\n                   score_mt = SR.score_mt;",
     choices: [
       { text: "UPDATE文では、SET句のサブクエリとWHERE句のEXISTSの2か所に散らばる結合条件を、ON句の1か所にまとめられる", ok: true, note: "2か所にあると、片方だけを直して、もう一方を直し忘れるミスを招きやすくなります。性能面でも、ScoreRowsを1回読んで集約し、1回結合するだけで済みます（PostgreSQLの計画もHashAggregateとHash Joinが1つずつです）。" },
       { text: "MERGE文は、全行をロックせずに更新できる", ok: false, note: "本書が挙げている利点ではありません。" },
-      { text: "MERGE文は標準SQLではないが、どのDBMSでも同じ構文で書ける", ok: false, note: "MERGE文はSQL:2003で標準に入りました。前の問題のとおり、構文には実装ごとの違いがあります。" },
+      { text: "MERGE文は標準SQLではないが、どのDBMSでも同じ構文で書ける", ok: false, note: "MERGE文はSQL:2003で標準に入りました。ただし構文には実装ごとの違いがあり、たとえばPostgreSQLでは、SET句の列名に表名を付けるとエラーになります。MySQL 8.0はMERGE文に対応していません。" },
       { text: "MERGE文なら、更新先にいない生徒（D004）も自動的に追加される", ok: false, note: "追加するにはWHEN NOT MATCHED THEN INSERTを書く必要があります。本書の解はWHEN MATCHEDだけです。" },
     ],
     show: [{ q: "merge_fix", tag: "MERGE文" }, { q: "nn_row", tag: "UPDATE文（行式）" }, { q: "nn_each", tag: "UPDATE文（1列ずつ）" }],
     takeaway: "MERGE文は、もともとUPDATEとINSERTを一度に行うための構文です。<b>UPDATEだけを書いてもよい、という点を利用したトリック</b>です。",
-  },
-  {
-    type: "q", sec: "演習問題9", title: "列から行へ、NOT NULLの列に", ref: "nn", table: ["score_cols2", "score_rows_nn"], tableNote: EX9_NOTE,
-    prompt: "9.2の逆向き（列持ち→行持ち）の更新です。本書9.3の解は、更新先の行ごとに、CASE式で教科に合った列を選びます（「9.3の解」タブ）。ScoreCols2の点数を、score列がNOT NULLのScoreRowsNNに移したい。PostgreSQLでエラーにならず、正しく更新できるのはどれ？",
-    choices: [
-      { q: "ex9_plain", tag: "9.3の解のまま", ok: false, note: "C003の社会は、CASE式のどのWHENにも当たらずNULLになります。「Failing row contains (C003, 社会, null)」で止まりました。" },
-      { q: "ex9_exists", tag: "WHERE EXISTSを足す", ok: false, note: "同じエラーです。C003はScoreCols2にいるので、EXISTSでは除外されません。欠けているのは生徒ではなく教科です。MySQLも結果タブのとおり、ERROR 1048で止まります（MySQLの実行計画タブには計画だけが表示されます）。" },
-      { q: "ex9_coalesce", tag: "CASE式をCOALESCEで包む", ok: true, note: "本書の解答です。NULLを0に変えるので、C003の社会は0になります。計画は9.3の解と同じで、SubPlanのloops=8です。" },
-    ],
-    show: [{ q: "ex9_plain", tag: "9.3の解のまま" }, { q: "ex9_exists", tag: "WHERE EXISTSを足す" }, { q: "ex9_coalesce", tag: "COALESCEで包む" }, { q: "rows_case", tag: "9.3の解（NULL可の表）" }],
-    takeaway: "<b>欠けているのが行（生徒）ならEXISTS、列（教科）ならCOALESCE。</b>9.2で見た2つのレベルの区別が、ここでも効きます。本書によると、COALESCEはサブクエリの外側に書いても、計画は変わりません。",
   },
   {
     type: "q", sec: "9.4 同じテーブルの異なる行からの更新", title: "株価のトレンドを計算する", ref: "trend", table: ["stocks"], tableNote: STOCKS_NOTE,
@@ -210,31 +193,20 @@ const SLIDES = [
       { q: "trend_nopart", tag: "PARTITION BYなし", ok: false, note: "銘柄の区切りがないので、B商社の最初の行が、A鉄鋼の最後の800と比べられて↑になります。C電気（↑）とD産業（↓）の最初の行も、前の銘柄の終値と比べられています（結果タブ）。" },
       { q: "trend_window", tag: "PARTITION BY brand", ok: true, note: "ROWS BETWEEN 1 PRECEDING AND 1 PRECEDINGで、銘柄ごとに1行前の終値を取ります。Seq Scan on stocksは1つで、brandとsale_dateでSortしてからWindowAggで計算します。" },
     ],
-    takeaway: "各銘柄の最初の行は1行前がないので、引き算がNULLになり、CASE式のELSEでtrendもNULLです。<b>行間比較の相関サブクエリは、ウィンドウ関数で1回のスキャンに置き換えられる。</b>MySQL 8.0では、本書の図9.28と違って、相関サブクエリの解でもINSERT SELECTの計画を表示できました（実行計画タブのMySQL）。",
+    takeaway: "<b>行間比較の相関サブクエリは、ウィンドウ関数で1回のスキャンに置き換えられる。</b>MySQL 8.0では、本書の図9.28と違って、相関サブクエリの解でもINSERT SELECTの計画を表示できました（実行計画タブのMySQL）。",
   },
   {
-    type: "q", sec: "9.4 同じテーブルの異なる行からの更新", title: "INSERT、UPDATE、ビュー", ref: "trend", table: ["stocks"], tableNote: STOCKS_NOTE,
-    prompt: "trendを持たせる方法には、別テーブルへのINSERT SELECT、Stocks自体へのUPDATE、Stocks2をビューにする方法がある。本書の評価として正しくないのはどれ？",
+    type: "q", sec: "9.4 同じテーブルの異なる行からの更新", title: "銘柄の最初の行のtrend", ref: "trend", table: ["stocks"], tableNote: STOCKS_NOTE,
+    prompt: "ウィンドウ関数の解でStocks2にINSERTした。B商社の最初の取引日（2008-06-04、3000円）の行には、trendとして何が入った？",
+    code: "INSERT INTO Stocks2\nSELECT brand, sale_date, price,\n       CASE SIGN(price -\n                  MAX(price) OVER (PARTITION BY brand\n                                       ORDER BY sale_date\n                                   ROWS BETWEEN 1 PRECEDING\n                                            AND 1 PRECEDING))\n            WHEN -1 THEN '↓'\n            WHEN 0 THEN '→'\n            WHEN 1 THEN '↑'\n            ELSE NULL\n        END\n  FROM Stocks S2;",
     choices: [
-      { text: "INSERT SELECTは、MySQLのように更新のSQLでの自己参照を許さないDBMSでも使える", ok: false, note: "本書の評価のとおりです。参照元と更新先が別のテーブルなので、ERROR 1093になりません。" },
-      { text: "INSERT SELECTは、UPDATEより性能を改善する手段が多く用意されている", ok: false, note: "本書の評価のとおりです。" },
-      { text: "ビューは、アクセスするたびに計算し直すので常に最新だが、検索の性能は最も悪い", ok: false, note: "本書の評価のとおりです。即時性と性能のトレードオフです。" },
-      { text: "INSERT SELECTは、ストレージの消費がUPDATEと変わらない", ok: true, note: "誤りです。ほぼ同じ構造のテーブルを2つ持つので、ストレージの消費はほぼ2倍になります。本書は、ストレージが安くなった今ではあまり大きな欠点ではないが、巨大なテーブルでは注意が必要だと述べています。" },
+      { text: "'→'", ok: false, note: "B商社の中で取引日順に並べると、この行が最初です。比べる1つ前の行がありません。" },
+      { text: "'↑'", ok: false, note: "PARTITION BY brandがなければ、前の銘柄（A鉄鋼の最後の800円）と比べられて↑になります。この解は銘柄ごとに分けているので、そうなりません。" },
+      { text: "NULL", ok: true, note: "1つ前の行がないので、MAX(price) OVER (…)はNULLを返します。price − NULLもSIGN(NULL)もNULLなので、CASE式はどのWHENにも当たらず、ELSE NULLになります（結果タブ）。" },
+      { text: "エラーで止まる", ok: false, note: "NULLを含む計算はNULLになるだけで、エラーにはなりません。trend列はNULLを許しています。" },
     ],
-    show: [{ q: "trend_window", tag: "INSERT SELECT（ウィンドウ関数）" }, { q: "trend_corr", tag: "INSERT SELECT（相関サブクエリ）" }],
-    takeaway: "<b>実テーブルを更新すれば検索は速いが、元のデータとの同期にタイムラグが生まれる。</b>この性能と即時性のトレードオフが、次の節のテーマです。",
-  },
-  {
-    type: "q", sec: "9.5 更新のもたらすトレードオフ", title: "注文者名義のMAX", ref: "model", table: ["orders", "order_receipts"], tableNote: ORDERS_NOTE,
-    prompt: "本書は、注文ごとの最大の遅延日数を求めるとき、order_nameをMAX(O.order_name)と書く理由を「GROUP BY句にない列を裸で書くとエラーになるから」と説明する。order_nameを裸で書いて、PostgreSQL 16とMySQL 8.0で実行すると、どうなった？",
-    choices: [
-      { text: "どちらもエラーになった", ok: false, note: "結果タブのとおり、どちらも3行を返しました。" },
-      { text: "どちらも動き、MAXを付けたときと同じ3行を返した", ok: true, note: "GROUP BYのキーO.order_idはOrdersの主キーなので、order_nameはorder_idで1つに決まります（関数従属）。PostgreSQLも、ONLY_FULL_GROUP_BYが有効なMySQLも、この場合は裸の列を許します。" },
-      { text: "PostgreSQLは動いたが、MySQLはONLY_FULL_GROUP_BYのエラーになった", ok: false, note: "MySQL 8.0も、主キーへの関数従属を認めて実行しました。" },
-      { text: "動いたが、order_nameに別の注文の名義が混ざった", ok: false, note: "order_idで1つに決まる値なので、混ざりません。" },
-    ],
-    show: [{ q: "late_bare", tag: "order_nameを裸で書く" }, { q: "late_agg", tag: "MAX(O.order_name)" }, { q: "late_join", tag: "集約前の結合" }],
-    takeaway: "主キーで集約したときに裸の列を許すかは、実装によります（Oracleはエラーにします）。<b>どのDBMSでも動かすなら、MAXやMINで包むか、GROUP BYにorder_nameも加える。</b>本書は注で、値を気にしないときに使えるANY_VALUE関数も紹介しています。",
+    show: [{ q: "trend_window", tag: "ウィンドウ関数" }],
+    takeaway: "<b>NULLを含む計算はNULLになり、CASE式ではELSEに進む。</b>各銘柄の最初の行は比べる相手がないので、trendはNULLです。A鉄鋼、C電気、D産業の最初の行も同じです。",
   },
   {
     type: "q", sec: "9.5 更新のもたらすトレードオフ", title: "SQLに頼らずに解く", ref: "model", table: ["orders", "order_receipts"], tableNote: ORDERS_NOTE,
@@ -249,7 +221,7 @@ const SLIDES = [
     takeaway: "問題を前にして反射的にSQLを書き始めるのは、<b>スーパーソルジャー病</b>という一種の視野狭窄です。「金槌しか持たない人には、すべての問題が釘に見える」（マズロー）。",
   },
   {
-    type: "q", sec: "9.6 モデル変更の注意点", title: "モデル変更のトレードオフ", ref: "model",
+    type: "q", sec: "9.6 モデル変更の注意点", title: "モデル変更のトレードオフ", ref: "model", table: ["orders", "order_receipts"], tableNote: ORDERS_NOTE,
     prompt: "配送遅延フラグを追加するモデル変更にも、トレードオフがある。本書が挙げていないのはどれ？",
     choices: [
       { text: "検索の負荷を更新に押し付けるので、更新コストが高まる", ok: false, note: "本書が挙げています。登録時にフラグが決まらなければ、あとでUPDATEが要ります。" },
@@ -257,22 +229,23 @@ const SLIDES = [
       { text: "あとからのモデル変更は手戻りが大きく、ほかの処理にも副作用が出るおそれがある", ok: false, note: "本書が挙げています。商用運用に入ってからの変更は、もう現実的ではありません。" },
       { text: "フラグの列を足すと、Ordersの主キーを変更しなければならない", ok: true, note: "本書が挙げていません。フラグは普通の列として追加するだけで、主キーは変わりません。" },
     ],
+    show: [{ q: "late_join", tag: "SQLで解く（結合）" }],
     takeaway: "本書の3つのトレードオフは、<b>更新コスト、更新までのタイムラグ、モデル変更のコスト</b>です。モデリングは、事前にあらゆる要因を想定しておかないと、あとで問題を引き起こすホットスポットです。",
   },
   {
-    type: "q", sec: "9.7 スーパーソルジャー病：類題", title: "注文ごとの商品数", ref: "model", table: ["orders", "order_receipts"], tableNote: ORDERS_NOTE,
-    prompt: "注文ごとの商品数を、集約関数の解（GROUP BY）とウィンドウ関数の解（COUNT(*) OVERとDISTINCT）で求めた。本書の評価と、PostgreSQLの計画として正しいのはどれ？",
+    type: "q", sec: "9.6 モデル変更の注意点", title: "フラグを更新する前に検索すると", ref: "model",
+    prompt: "Ordersに配送遅延フラグ（del_late_flg）の列を足した。注文10000は、配送予定日が受付日の4日後なので、本来は遅延あり（1）だ。❸のあと❹の前に、遅延している注文を探すSQLを実行すると、10000は結果に含まれる？",
+    code: "-- 注文10000の処理の順番（図9.34）\n❶ Orders        ：注文を登録（受付日 = 2011-08-22、del_late_flg = NULL）\n❷ OrderReceipts ：明細を登録（配送予定日 = NULL）\n❸ OrderReceipts ：配送予定日を 2011-08-26 に更新\n                   ← ここで下のSQLを実行する\n❹ Orders        ：del_late_flg を 1 に更新\n\n-- 遅延している注文を探すSQL\nSELECT order_id\n  FROM Orders\n WHERE del_late_flg = 1;",
     choices: [
-      { text: "本書は可読性と拡張性からウィンドウ関数の解を好むが、PostgreSQLの計画では、ウィンドウ関数の解のほうがSortとWindowAggの分だけ手順が多い", ok: true, note: "どちらもHash Joinで結合します。集約関数の解はHashAggregateだけですが、ウィンドウ関数の解はSort、WindowAgg、DISTINCTのためのHashAggregateが続きます。本書は実行コストをほぼ同じと見て、別の観点で比べています。" },
-      { text: "本書は性能からウィンドウ関数の解を好み、PostgreSQLの計画でも、ウィンドウ関数の解は結合をなくしてOrderReceiptsだけを読む", ok: false, note: "order_nameとorder_dateはOrdersにあるので、どちらの解もHash Joinで結合します。本書も、性能はほぼ同じと見ています。" },
-      { text: "本書は可読性から集約関数の解を好み、PostgreSQLの計画でも、集約関数の解のほうがSortとWindowAggの分だけ手順が多い", ok: false, note: "本書は、やりたいことを素直に表せる点と、商品別の結果にも対応できる点から、ウィンドウ関数の解を好みます。手順が多いのも、集約関数の解ではなくウィンドウ関数の解です。" },
-      { text: "本書はどちらでも同じと評価し、PostgreSQLの計画も、2つの解でまったく同じになる", ok: false, note: "本書はウィンドウ関数の解を好みます。PostgreSQLの計画も、ウィンドウ関数の解にはSortとWindowAggが加わり、同じではありません。" },
+      { text: "含まれる。配送予定日はもう8/26になっているから", ok: false, note: "このSQLが見ているのは、Ordersのdel_late_flgだけです。OrderReceiptsの配送予定日は見ていません。" },
+      { text: "含まれない。フラグはまだNULLなので、本当は遅延しているのに見つからない", ok: true, note: "❹でフラグを1に更新するまでは、del_late_flg = 1が真になりません。OrderReceiptsとOrdersの内容が食い違っている時間帯です。" },
+      { text: "エラーになる。フラグがNULLの行があるから", ok: false, note: "NULL = 1は真にも偽にもならず（不明）、その行が結果から外れるだけです。エラーにはなりません。" },
+      { text: "含まれる。データベースがフラグを自動的に計算し直すから", ok: false, note: "del_late_flgは普通の列です。誰かがUPDATEしない限り、値は変わりません。" },
     ],
-    show: [{ q: "cnt_agg", tag: "集約関数" }, { q: "cnt_window", tag: "ウィンドウ関数" }],
-    takeaway: "MySQLではどちらもNested Loopで結合し、ウィンドウ関数の解には重複を除く一時テーブルが加わります。そしてここでも、<b>Ordersに商品数の列を持たせるモデル変更</b>が考えられます。",
+    takeaway: "<b>これがタイムラグ。検索を速くした代わりに、フラグと元のデータが食い違う時間ができる。</b>本書によると、夜間バッチでまとめて更新するとこの時間が長くなり、完全なリアルタイムを求めて❸と❹を同じトランザクションで処理すると、性能に厳しいトレードオフが生じます。",
   },
   {
-    type: "q", sec: "9.7 スーパーソルジャー病：類題", title: "商品数の列と遅延フラグの違い", ref: "model",
+    type: "q", sec: "9.7 スーパーソルジャー病：類題", title: "商品数の列と遅延フラグの違い", ref: "model", table: ["orders", "order_receipts"], tableNote: ORDERS_NOTE,
     prompt: "Ordersに商品数（item_count）の列を足すモデル変更は、配送遅延フラグを足す場合より更新コストの面で有利だ。本書が挙げる理由はどれ？",
     choices: [
       { text: "商品数は普通、注文を登録する時点でわかるので、INSERT文の中に吸収できる", ok: true, note: "遅延フラグは、配送予定日があとで決まると、あとからUPDATEする必要があります。商品数は登録時に入れられるので、更新コストはほとんど上がりません。" },
@@ -280,6 +253,7 @@ const SLIDES = [
       { text: "商品数はあとから変わることがないので、同期の問題が一切起きない", ok: false, note: "本書は、登録した注文をあとから変更する場合には商品数も直す必要があり、同じ同期の問題を考える必要があると注意しています。" },
       { text: "商品数ならインデックスが要らないから", ok: false, note: "本書が挙げる理由ではありません。" },
     ],
+    show: [{ q: "cnt_agg", tag: "SQLで解く（集約関数）" }],
     takeaway: "<b>データモデルがコードを決めるのであって、その逆ではない。</b>本書はレイモンドの「賢いデータ構造と間抜けなコードのほうが、その逆よりずっとまし」を引き、テーブル設計は最初が肝心だと結びます。",
   },
   { type: "end" },
@@ -380,7 +354,6 @@ const INTRO_BODY = {
         <ul class="points">
           <li>1つ前と同じ値ならNULLに戻します。「1つ前の行のval」は相関サブクエリでも、LAG(val, 1)でも求められます。</li>
         </ul>
-        <p class="hint">本書は、NULLを飛ばすウィンドウ関数のオプションIGNORE NULLSを使う解も示します（主要なDBMSではOracleとSQL Serverのみ）。また本書によると、MySQLはUPDATE文のサブクエリで、更新先と同じテーブルを読めません。</p>
       </div>
     </div>`,
   rowcol: () => `${premise([["あるもの", "テストの点数。1教科で1行の表ScoreRows（行持ち）にある。"], ["したいこと", "1生徒で1行、教科を列に並べた表ScoreCols（列持ち）へ、形を変えながらコピーする。"], ["論点", "3つの列を更新するのに、ScoreRowsを何回読むか。"]], SIDE.rowcol)}
