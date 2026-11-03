@@ -45,9 +45,10 @@ const ORDERS_NOTE = "主キーはOrdersがorder_id、OrderReceiptsが(order_id, 
 
 const SLIDES = [
   { type: "cover" },
-  { type: "intro", id: "plan", title: "更新文の実行計画を読む" },
+  { type: "intro", id: "plan", title: "この章の全体像" },
   { type: "intro", id: "fill", title: "NULLの埋め立てと逆演算" },
-  { type: "intro", id: "rowcol", title: "行と列の変換" },
+  { type: "intro", id: "rowcol", title: "行から列へ①　3教科をまとめて更新" },
+  { type: "intro", id: "nn", title: "行から列へ②　NOT NULLの列への更新" },
   { type: "intro", id: "trend", title: "同じテーブルの別の行から更新" },
   { type: "intro", id: "model", title: "スーパーソルジャー病" },
   {
@@ -155,7 +156,7 @@ const SLIDES = [
     takeaway: "<b>MAXは最大値を求めるためではなく、複数の行を1つの値にたたむために使っている。</b>第4章の、集約関数の中にCASE式を書いて行を列に変換する技法と同じです。",
   },
   {
-    type: "q", sec: "9.2 行から列への更新", title: "NOT NULLの列への更新", ref: "rowcol", table: ["score_rows", "score_cols_nn"], tableNote: NN_NOTE,
+    type: "q", sec: "9.2 行から列への更新", title: "NOT NULLの列への更新", ref: "nn", table: ["score_rows", "score_cols_nn"], tableNote: NN_NOTE,
     prompt: "行式の解（COALESCEなし）を、NOT NULL制約の付いたScoreColsNNに対して実行した。PostgreSQLは、どの行の値で止まった？",
     choices: [
       { text: "D004（ScoreRowsに1行もない生徒）", ok: false, note: "D004も3列がNULLになるので違反しますが、PostgreSQLが先に処理したのはB002です。" },
@@ -167,7 +168,7 @@ const SLIDES = [
     takeaway: "本書は、NULLが生じる場面を2つのレベルに分けます。<b>そもそも生徒がいない（D004）場合と、生徒はいるが教科が欠けている（B002とC003の数学）場合です。</b>前者をEXISTSで、後者をCOALESCEで防ぎます。",
   },
   {
-    type: "q", sec: "9.2 行から列への更新", title: "EXISTSを外すと", ref: "rowcol", table: ["score_rows", "score_cols_nn"], tableNote: NN_NOTE,
+    type: "q", sec: "9.2 行から列への更新", title: "EXISTSを外すと", ref: "nn", table: ["score_rows", "score_cols_nn"], tableNote: NN_NOTE,
     prompt: "NOT NULLに対応した行式の解から、外側のWHERE EXISTS（ScoreRowsに生徒がいる行に限る）を外した。PostgreSQLではどうなった？",
     choices: [
       { text: "D004の行でNOT NULL違反のエラーになった", ok: false, note: "エラーにはなりませんでした。結果タブのとおり、UPDATE 4です。" },
@@ -179,7 +180,7 @@ const SLIDES = [
     takeaway: "このデータではD004の初期値も0なので、見た目は変わりません。<b>EXISTSが防いでいるのはエラーよりも、更新元にいない行を0で上書きしてしまうこと</b>です。D004に別の値が入っていたら消えてしまいます。PostgreSQLの計画では、EXISTSがHashAggregateとHash Joinになって加わっています（本書のOracleではHASH JOIN SEMI）。",
   },
   {
-    type: "q", sec: "9.2 行から列への更新", title: "本書のMERGE文をPostgreSQLで", ref: "rowcol", table: ["score_rows", "score_cols_nn"], tableNote: NN_NOTE,
+    type: "q", sec: "9.2 行から列への更新", title: "本書のMERGE文をPostgreSQLで", ref: "nn", table: ["score_rows", "score_cols_nn"], tableNote: NN_NOTE,
     prompt: "本書は、MERGE文で複数列を更新する解を「Oracle、Db2でのみ利用可能」としている。本書のリストをPostgreSQL 16でそのまま実行するとどうなった？",
     choices: [
       { text: "MERGE文に対応していないので、構文エラーになった", ok: false, note: "PostgreSQLはバージョン15からMERGE文に対応しています（SQL Serverも2008から対応しています）。MERGE文そのものは動きます。" },
@@ -191,7 +192,7 @@ const SLIDES = [
     takeaway: "<b>MERGE文は、PostgreSQL 15以降でも使える。</b>ただし構文には実装ごとの違いが残ります。MySQL 8.0はMERGE文に対応していません。",
   },
   {
-    type: "q", sec: "9.2 行から列への更新", title: "MERGE文を使う利点", ref: "rowcol", table: ["score_rows", "score_cols_nn"], tableNote: NN_NOTE,
+    type: "q", sec: "9.2 行から列への更新", title: "MERGE文を使う利点", ref: "nn", table: ["score_rows", "score_cols_nn"], tableNote: NN_NOTE,
     prompt: "UPDATE文の代わりにMERGE文を使う利点として、本書が挙げるものはどれ？",
     choices: [
       { text: "UPDATE文では、SET句のサブクエリとWHERE句のEXISTSの2か所に散らばる結合条件を、ON句の1か所にまとめられる", ok: true, note: "2か所にあると、片方だけを直して、もう一方を直し忘れるミスを招きやすくなります。性能面でも、ScoreRowsを1回読んで集約し、1回結合するだけで済みます（PostgreSQLの計画もHashAggregateとHash Joinが1つずつです）。" },
@@ -203,8 +204,8 @@ const SLIDES = [
     takeaway: "MERGE文は、もともとUPDATEとINSERTを一度に行うための構文です。<b>UPDATEだけを書いてもよい、という点を利用したトリック</b>です。",
   },
   {
-    type: "q", sec: "演習問題9", title: "列から行へ、NOT NULLの列に", ref: "rowcol", table: ["score_cols2", "score_rows_nn"], tableNote: EX9_NOTE,
-    prompt: "ScoreCols2の点数を、score列がNOT NULLのScoreRowsNNに移したい。PostgreSQLでエラーにならず、正しく更新できるのはどれ？",
+    type: "q", sec: "演習問題9", title: "列から行へ、NOT NULLの列に", ref: "nn", table: ["score_cols2", "score_rows_nn"], tableNote: EX9_NOTE,
+    prompt: "9.2の逆向き（列持ち→行持ち）の更新です。本書9.3の解は、更新先の行ごとに、CASE式で教科に合った列を選びます（「9.3の解」タブ）。ScoreCols2の点数を、score列がNOT NULLのScoreRowsNNに移したい。PostgreSQLでエラーにならず、正しく更新できるのはどれ？",
     choices: [
       { q: "ex9_plain", tag: "9.3の解のまま", ok: false, note: "C003の社会は、CASE式のどのWHENにも当たらずNULLになります。「Failing row contains (C003, 社会, null)」で止まりました。" },
       { q: "ex9_exists", tag: "WHERE EXISTSを足す", ok: false, note: "同じエラーです。C003はScoreCols2にいるので、EXISTSでは除外されません。欠けているのは生徒ではなく教科です。MySQLも結果タブのとおり、ERROR 1048で止まります（MySQLの実行計画タブには計画だけが表示されます）。" },
@@ -311,34 +312,56 @@ function vt(cols, rows) {
     <tbody>${rows.map(r => `<tr>${r.map(td).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
+// 基礎スライドのタイトルの上に、スライド1のどちらの主張に属するかを出す
+const CLAIM_OF = { fill: 1, rowcol: 1, nn: 1, trend: 1, model: 2 };
+const INTRO_KICKER = s => {
+  const no = CLAIM_OF[s.id];
+  if (!no) return "";
+  const t = no === 1 ? { k: "acc", s: "更新は、1つのSQL文で書ける" } : { k: "ok", s: "SQLで解く前に、テーブルの形を疑え" };
+  return `<div style="display:inline-block;background:${TONE[t.k]};border-radius:999px;padding:4px 14px;margin:4px 0 6px;font-size:14px;font-weight:700">主張${no}「${t.s}」の具体例</div>`;
+};
+
+// 各スライドの前提：何がある状況で、何をしたいのか
+const premise = (rows, side = "") => `<div style="border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:0 0 14px;background:var(--surface);display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-start">
+    <div style="flex:1 1 320px;display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:15px;line-height:1.6">
+      ${rows.map(([h, b]) => `<div style="font-weight:700;color:var(--muted);white-space:nowrap">${h}</div><div>${b}</div>`).join("")}
+    </div>
+    ${side ? `<div style="flex:0 1 auto;display:flex;flex-wrap:wrap;gap:12px;font-size:13px">${side}</div>` : ""}
+  </div>`;
+// 前提の枠に置く元データの表（setup.sqlと同じ値）
+const tb = (name, cols, rows) => `<div><div class="label" style="margin:0 0 4px">${name}</div>${vt(cols, rows)}</div>`;
+const N = null;
+const SIDE = {
+  fill: tb("OmitTbl（keycol = A）", ["seq", "val"], [[1, 50], [2, N], [3, N], [4, 70], [5, N], [6, 900]])
+      + tb("OmitTbl（keycol = B）", ["seq", "val"], [[1, 10], [2, 20], [3, N], [4, 3], [5, N], [6, N]]),
+  rowcol: tb("ScoreRows（行持ち）", ["student_id", "subject", "score"], [["A001", "英語", 100], ["A001", "国語", 58], ["A001", "数学", 90], ["B002", "英語", 77], ["B002", "国語", 60], ["C003", "英語", 52], ["C003", "国語", 49], ["C003", "社会", 100]])
+      + tb("ScoreCols（列持ち・更新前）", ["student_id", "score_en", "score_nl", "score_mt"], [["A001", N, N, N], ["B002", N, N, N], ["C003", N, N, N], ["D004", N, N, N]]),
+  nn: tb("①の更新後のScoreCols（NULLを入れてよい表）", ["student_id", "score_en", "score_nl", "score_mt"], [["A001", 100, 58, 90], ["B002", 77, 60, { v: N, k: "acc", n: "← 教科がない" }], ["C003", 52, 49, { v: N, k: "acc", n: "← 教科がない" }], [{ v: "D004", k: "ng" }, { v: N, k: "ng" }, { v: N, k: "ng" }, { v: N, k: "ng", n: "← 生徒がいない" }]])
+      + tb("ScoreColsNN（3列ともNOT NULL・更新前）", ["student_id", "score_en", "score_nl", "score_mt"], [["A001", 0, 0, 0], ["B002", 0, 0, 0], ["C003", 0, 0, 0], ["D004", 0, 0, 0]]),
+  trend: tb("Stocks", ["brand", "sale_date", "price"], [["A鉄鋼", "2008-07-01", 1000], ["A鉄鋼", "2008-07-04", 1200], ["A鉄鋼", "2008-08-12", 800], ["B商社", "2008-06-04", 3000], ["B商社", "2008-09-11", 3000], ["C電気", "2008-07-01", 9000], ["D産業", "2008-06-04", 5000], ["D産業", "2008-06-05", 5000], ["D産業", "2008-06-06", 4800], ["D産業", "2008-12-01", 5100]]),
+  model: tb("Orders（注文）", ["order_id", "order_shop", "order_name", "order_date"], [[10000, "東京", "後藤信二", "2011-08-22"], [10001, "埼玉", "佐原商店", "2011-09-01"], [10002, "千葉", "水原陽子", "2011-09-20"], [10003, "山形", "加地健太郎", "2011-08-05"], [10004, "青森", "相原酒店", "2011-08-22"], [10005, "長野", "宮元雄介", "2011-08-29"]])
+      + tb("OrderReceipts（注文明細）", ["order_id", "order_receipt_id", "item_group", "delivery_date"], [[10000, 1, "食器", "2011-08-24"], [10000, 2, "菓子詰め合わせ", "2011-08-25"], [10000, 3, "牛肉", "2011-08-26"], [10001, 1, "魚介類", "2011-09-04"], [10002, 1, "菓子詰め合わせ", "2011-09-22"], [10002, 2, "調味料セット", "2011-09-22"], [10003, 1, "米", "2011-08-06"], [10003, 2, "牛肉", "2011-08-10"], [10003, 3, "食器", "2011-08-10"], [10004, 1, "野菜", "2011-08-23"], [10005, 1, "飲料水", "2011-08-30"], [10005, 2, "菓子詰め合わせ", "2011-08-30"]]),
+};
+
+// 基礎スライドのコードは、横スクロールさせずに折り返して全文を見せる
+const code = s => `<pre style="white-space:pre-wrap;overflow-wrap:anywhere;overflow-x:visible">${esc(s)}</pre>`;
+
 const INTRO_BODY = {
   plan: () => {
-    const r = analyze(D.cols_each.pg, "pg");
-    return `<p class="takeaway" style="margin:0 0 14px"><b>この章の主張は2つ。</b>❶ 更新は、1行ずつ回すループではなく1つのSQL文で書ける（9.1〜9.4）。❷ そもそもSQLで頑張る前に、テーブルの形を変えれば簡単に解けないか考える（9.5〜9.8）。❶の良し悪しは、実行計画でサブクエリが何回動いたか（loops）で確かめます。</p>
+    const card = (no, tone, head, sub, secs) => `<div class="col" style="background:${TONE[tone]};border-radius:12px;padding:22px 24px">
+        <div style="font-size:15px;font-weight:700;color:var(--muted);letter-spacing:.08em">主張${no}</div>
+        <div style="font-size:30px;font-weight:800;line-height:1.35;margin:8px 0 12px">${head}</div>
+        <div style="font-size:17px;line-height:1.6">${sub}</div>
+        <div style="font-size:14px;color:var(--muted);margin-top:14px">${secs}</div>
+      </div>`;
+    return `${premise([["前提", "SQLは検索のために生まれた言語で、更新の機能はあまり知られていない。そのため、1行だけ更新するSQL文をループで回す「ぐるぐる系」（第5章）の非効率なコードが多い。"]])}
     <div class="grid">
-      <div class="col">
-        <div class="label">更新文の実行計画で見るところ（PostgreSQL）</div>
-        ${vt(["ノード", "意味"], [
-          ["Update on、Insert on、Merge on", "どのテーブルを更新するか"],
-          ["その下のSeq ScanとFilter", "更新する行（WHERE句）"],
-          [{ v: "SubPlan（loops=N）", k: "acc" }, "SET句のサブクエリ。N回実行した"],
-          ["InitPlan", "親の行に依存しないサブクエリ"],
-          ["Sort＋WindowAgg", "ウィンドウ関数"],
-        ])}
-        <p class="hint">MySQL 8.0のEXPLAIN ANALYZEは、WHERE句にサブクエリのない1テーブルのUPDATE文の計画を表示しません。このドリルの更新は、すべてロールバックしています。</p>
-      </div>
-      <div class="col">
-        <div class="label">例：3教科を1列ずつ更新するUPDATE文</div>
-        <pre class="plan">${r.html}</pre>
-        <ol class="points">
-          <li>更新先のScoreColsを読む（4行）。</li>
-          <li>その4行それぞれで、SubPlan 1〜3を実行する（loops=4）。<b>SET句のサブクエリが3つなら、ScoreRowsを読む系統も3つ。</b></li>
-        </ol>
-        <div class="legend"><span class="lf">テーブルを全件読む行</span><span class="li">インデックスで探す行</span></div>
-      </div>
+      ${card(1, "acc", "更新は、1つのSQL文で書ける", "1行ずつ回すループは要らない。相関サブクエリ、行式、CASE式、ウィンドウ関数、MERGE文を組み合わせる。", "9.1〜9.4 ／ スライド2〜5")}
+      ${card(2, "ok", "SQLで解く前に、テーブルの形を疑え", "列を1つ足せば、難しいSQLが要らなくなることがある。ただし設計はあとから変えにくいので、最初が肝心。", "9.5〜9.8 ／ スライド6")}
     </div>`;
   },
-  fill: () => `<p class="takeaway" style="margin:0 0 14px"><b>同じkeycolの「前の行」を相関サブクエリで見れば、NULLを埋めるのも戻すのも1つのUPDATE文で書ける。</b>埋めるときの肝は「valがNULLでない行に限る」条件で、これがあるからNULLが続いても値のある行まで遡れます。</p>
+  fill: () => `${premise([["あるもの", "OmitTbl。valが前の行（同じkeycolで1つ前のseq）と同じときは、入力の手間を省くためにNULLにしてある。紙のデータを手で入力するときによくある省略です。"], ["困ること", "ルールを知っている人間には読めるが、このままではvalを集計できない。"], ["したいこと", "NULLを本来の値で埋める（埋め立て）。逆に、埋めた表を省略した形に戻す（逆演算）。"], ["論点", "1行ずつ回すループではなく、1つのUPDATE文で書けるか。"]], SIDE.fill)}
+    <p class="takeaway" style="margin:0 0 14px"><b>同じkeycolの「前の行」を相関サブクエリで見れば、NULLを埋めるのも戻すのも1つのUPDATE文で書ける。</b>埋めるときの肝は「valがNULLでない行に限る」条件で、これがあるからNULLが続いても値のある行まで遡れます。</p>
     <div class="grid">
       <div class="col">
         <div class="label">NULLを埋める（keycol = Aの6行）</div>
@@ -350,7 +373,7 @@ const INTRO_BODY = {
           [5, null, "seq 4", { v: 70, k: "ok" }],
           [6, 900, "", 900],
         ])}
-        ${pre("UPDATE OmitTbl\n   SET val = (自分より前で、valがNULLでない行のうち\n              seqが最大の行のval)\n WHERE val IS NULL;")}
+        ${code("UPDATE OmitTbl\n   SET val = (自分より前で、valがNULLでない行のうち\n              seqが最大の行のval)\n WHERE val IS NULL;")}
         <ul class="points">
           <li>「値を取りに行く行」は、<b>同じkeycol</b>、<b>自分より小さいseq</b>、<b>valがNULLでない</b>の3条件で絞った中で、seqが最大の行です。本書はこれを相関サブクエリで書きます。</li>
         </ul>
@@ -365,48 +388,51 @@ const INTRO_BODY = {
           [5, 70, 70, "同じ", { v: null, k: "ng" }],
           [6, 900, 70, "違う", 900],
         ])}
-        ${pre("SET val = CASE WHEN val = (1つ前の行のvalを返すサブクエリ)\n               THEN NULL\n               ELSE val END")}
+        ${code("SET val = CASE WHEN val = (1つ前の行のvalを返すサブクエリ)\n               THEN NULL\n               ELSE val END")}
         <ul class="points">
           <li>1つ前と同じ値ならNULLに戻します。「1つ前の行のval」は相関サブクエリでも、LAG(val, 1)でも求められます。</li>
         </ul>
         <p class="hint">本書は、NULLを飛ばすウィンドウ関数のオプションIGNORE NULLSを使う解も示します（主要なDBMSではOracleとSQL Serverのみ）。また本書によると、MySQLはUPDATE文のサブクエリで、更新先と同じテーブルを読めません。</p>
       </div>
     </div>`,
-  rowcol: () => `<p class="takeaway" style="margin:0 0 14px"><b>行→列は、MAX(CASE …)で教科ごとの行を1行にまとめ、行式SET (列, 列, 列) = (…)で3列を1回のサブクエリで更新する。</b>列がNOT NULLなら、NULLが入る2つの原因を別々に防ぎます。</p>
+  rowcol: () => `${premise([["あるもの", "テストの点数。1教科で1行の表ScoreRows（行持ち）にある。"], ["したいこと", "1生徒で1行、教科を列に並べた表ScoreCols（列持ち）へ、形を変えながらコピーする。"], ["論点", "3つの列を更新するのに、ScoreRowsを何回読むか。"]], SIDE.rowcol)}
+    <p class="takeaway" style="margin:0 0 14px"><b>1列ずつSETを書くと、ScoreRowsを教科の数だけ読み直す。行式SET (列, 列, 列) = (…)なら、1回のサブクエリで3列まとめて更新できる。</b></p>
     <div class="grid">
       <div class="col">
-        <div class="label">行から列へ：A001の3行が1行になるまで</div>
-        ${vt(["subject", "score", "英語のCASE", "国語のCASE", "数学のCASE"], [
-          ["英語", 100, { v: 100, k: "acc" }, null, null],
-          ["国語", 58, null, { v: 58, k: "acc" }, null],
-          ["数学", 90, null, null, { v: 90, k: "acc" }],
-          [{ v: "MAXで1行に", k: "ok" }, "", { v: 100, k: "ok" }, { v: 58, k: "ok" }, { v: 90, k: "ok" }],
+        <div class="label">良くない例：1列ずつSETを書く（リスト9.8）</div>
+        ${code("UPDATE ScoreCols\n   SET score_en = (SELECT score FROM ScoreRows SR\n                    WHERE SR.student_id = ScoreCols.student_id\n                      AND subject = '英語'),\n       score_nl = (SELECT score FROM ScoreRows SR\n                    WHERE SR.student_id = ScoreCols.student_id\n                      AND subject = '国語'),\n       score_mt = (SELECT score FROM ScoreRows SR\n                    WHERE SR.student_id = ScoreCols.student_id\n                      AND subject = '数学');")}
+        ${vt(["", "サブクエリ", "ScoreRowsを読む回数"], [
+          ["1列ずつ", "3つ（教科ごと）", { v: "3つ × 4人 = 12回", k: "ng" }],
+          ["行式", "1つ", { v: "1つ × 4人 = 4回", k: "ok" }],
         ])}
-        ${pre("UPDATE ScoreCols\n   SET (score_en, score_nl, score_mt)\n     = (SELECT MAX(CASE WHEN subject = '英語' THEN score END),\n               MAX(CASE WHEN subject = '国語' THEN score END),\n               MAX(CASE WHEN subject = '数学' THEN score END)\n          FROM ScoreRows SR\n         WHERE SR.student_id = ScoreCols.student_id);")}
-        <ul class="points">
-          <li>CASE式で点数を教科の列に振り分け、NULLを無視するMAXで1行にします。</li>
-          <li>1列ずつSETを書くと、サブクエリが教科の数だけ必要です。</li>
-        </ul>
+        <p class="hint">サブクエリは更新するScoreColsの行（4人）ごとに1回ずつ動きます。PostgreSQLの実行計画では、1列ずつの版はSubPlan 1〜3がそれぞれloops=4、行式の版はSubPlan 1だけがloops=4です。</p>
       </div>
       <div class="col">
-        <div class="label">更新後のScoreCols：NULLが残る2つの理由</div>
-        ${vt(["student_id", "score_en", "score_nl", "score_mt"], [
-          ["A001", 100, 58, 90],
-          ["B002", 77, 60, { v: null, k: "acc", n: "← 教科がない" }],
-          ["C003", 52, 49, { v: null, k: "acc", n: "← 教科がない" }],
-          [{ v: "D004", k: "ng" }, { v: null, k: "ng" }, { v: null, k: "ng" }, { v: null, k: "ng", n: "← 生徒がいない" }],
+        <div class="label">良い例：行式でまとめて更新する（リスト9.9）</div>
+        ${code("UPDATE ScoreCols\n   SET (score_en, score_nl, score_mt)\n     = (SELECT MAX(CASE WHEN subject = '英語' THEN score END),\n               MAX(CASE WHEN subject = '国語' THEN score END),\n               MAX(CASE WHEN subject = '数学' THEN score END)\n          FROM ScoreRows SR\n         WHERE SR.student_id = ScoreCols.student_id);")}
+        <div class="label">サブクエリの中身（A001のとき）</div>
+        ${vt(["選ばれた行", "英語のCASE", "国語のCASE", "数学のCASE"], [
+          ["英語, 100", { v: 100, k: "acc" }, null, null],
+          ["国語, 58", null, { v: 58, k: "acc" }, null],
+          ["数学, 90", null, null, { v: 90, k: "acc" }],
+          [{ v: "MAXで1行に畳む", k: "ok" }, { v: 100, k: "ok" }, { v: 58, k: "ok" }, { v: 90, k: "ok" }],
         ])}
-        <ul class="points">
-          <li>列がNOT NULLのときは、この2種類のNULLを別々に防ぎます。<b>生徒がいない行はWHERE EXISTSで更新対象から外し、欠けた教科はCOALESCEで0にします。</b></li>
-          <li>MERGE文を使うと、2つの表を突き合わせる条件をON句の1か所にまとめられます。</li>
-        </ul>
-        <div class="label">逆向き（列から行へ）</div>
-        ${vt(["ScoreRowsのsubject", "取ってくるScoreColsの列"], [
-          ["英語", "score_en"], ["国語", "score_nl"], ["数学", "score_mt"], ["社会", { v: "（対応する列なし）→ NULL", k: "acc" }],
-        ])}
+        <p class="hint">WHEREで選ぶのはその生徒の全教科の行（A001なら3行）です。CASE式は行を減らさず、教科が合わない列をNULLにします。SETの右側は1行でなければならないので、NULLを無視するMAXで1行に畳みます。</p>
       </div>
     </div>`,
-  trend: () => `<p class="takeaway" style="margin:0 0 14px"><b>同じテーブルの「1行前」と比べた結果は、相関サブクエリかウィンドウ関数で求める。</b>結果の置き場所は、別テーブルへのINSERT、元テーブルのUPDATE、ビューの3通りで、速さと容量のトレードオフがあります。</p>
+  nn: () => `${premise([["①の結果", "①の更新先ScoreColsは、列にNULLを入れてよい表だった。そのため、B002とC003の数学（教科がない）と、D004の3列（生徒がいない）はNULLのまま更新された。"], ["ここで仮定", "もし更新先の3列にNOT NULL制約が付いていたら？ 本書はこれを別の表ScoreColsNNで考える。NOT NULLの列は空にしておけないので、更新前の値はすべて0にしてある。"], ["論点", "①の良い例を、更新先だけScoreColsNNに変えて実行するとどうなるか。"]], SIDE.nn)}
+    <p class="takeaway" style="margin:0 0 14px"><b>NULLの原因ごとに防ぎ方を変える。欠けた教科はCOALESCEで0にし、ScoreRowsにいない生徒はWHERE EXISTSで更新対象から外す。</b></p>
+    <div class="label">1. ①の良い例をそのまま実行すると、エラーになる</div>
+    ${code('ERROR:  null value in column "score_mt" of relation "scorecolsnn" violates not-null constraint\nDETAIL:  Failing row contains (B002, 77, 60, null).')}
+    <p class="hint">B002の数学にNULLを入れようとして、NOT NULL制約に違反しました。1行でも違反すると、UPDATE文全体が取り消されます。</p>
+    <div class="label">2. 2つの原因を別々に防ぐ（リスト9.12）</div>
+    ${code("UPDATE ScoreColsNN\n   SET (score_en, score_nl, score_mt)\n     = (SELECT COALESCE(MAX(CASE WHEN subject = '英語' THEN score END), 0),   -- 教科がなければ0\n               COALESCE(MAX(CASE WHEN subject = '国語' THEN score END), 0),\n               COALESCE(MAX(CASE WHEN subject = '数学' THEN score END), 0)\n          FROM ScoreRows SR\n         WHERE SR.student_id = ScoreColsNN.student_id)\n WHERE EXISTS (SELECT *                                   -- ScoreRowsにいる生徒だけ更新する\n                 FROM ScoreRows\n                WHERE student_id = ScoreColsNN.student_id);")}
+    ${vt(["NULLの原因", "防ぎ方", "読み方", "更新後"], [
+      ["教科がない（B002・C003の数学）", { v: "COALESCE(…, 0)", k: "acc" }, "NULLなら0にする", "数学は0"],
+      ["生徒がいない（D004）", { v: "WHERE EXISTS (…)", k: "acc" }, "ScoreRowsに1行でもいる生徒だけ更新する", "更新されず、初期値の0のまま"],
+    ])}`,
+  trend: () => `${premise([["あるもの", "Stocks。銘柄ごとに、取引日とその日の株価がある。"], ["したいこと", "各行に、前回の取引日より株価が上がった（↑）、同じ（→）、下がった（↓）を表すtrendを付けて、空の表Stocks2にINSERTする。"], ["論点", "同じテーブルの別の行（同じ銘柄の1つ前の取引日）の値を、どう参照するか。"]], SIDE.trend)}
+    <p class="takeaway" style="margin:0 0 14px"><b>同じテーブルの「1行前」と比べた結果は、相関サブクエリかウィンドウ関数で求める。</b></p>
     <div class="grid">
       <div class="col">
         <div class="label">trendの計算（A鉄鋼とB商社）</div>
@@ -424,20 +450,15 @@ const INTRO_BODY = {
       </div>
       <div class="col">
         <div class="label">「1行前のprice」の求め方</div>
-        ${pre("-- 相関サブクエリ：行ごとに、直前の取引日を探して読む\n(SELECT price FROM Stocks S1\n  WHERE brand = Stocks.brand\n    AND sale_date = (SELECT MAX(sale_date) FROM Stocks S2\n                      WHERE brand = Stocks.brand\n                        AND sale_date < Stocks.sale_date))\n\n-- ウィンドウ関数：銘柄ごとに並べて、1行前を見る\nMAX(price) OVER (PARTITION BY brand ORDER BY sale_date\n                 ROWS BETWEEN 1 PRECEDING AND 1 PRECEDING)")}
-        <div class="label">結果をどこに持たせるか</div>
-        ${vt(["方法", "利点", "欠点"], [
-          ["別テーブルにINSERT", "速い。MySQLでも書ける", { v: "容量がほぼ2倍", k: "ng" }],
-          ["元のテーブルをUPDATE", "テーブルは1つ", { v: "MySQLは自己参照できない", k: "ng" }],
-          ["ビューにする", "容量ゼロ、常に最新", { v: "毎回計算するので最も遅い", k: "ng" }],
-        ])}
+        ${code("-- 相関サブクエリ：行ごとに、直前の取引日を探して読む\n(SELECT price FROM Stocks S1\n  WHERE brand = Stocks.brand\n    AND sale_date = (SELECT MAX(sale_date) FROM Stocks S2\n                      WHERE brand = Stocks.brand\n                        AND sale_date < Stocks.sale_date))\n\n-- ウィンドウ関数：銘柄ごとに並べて、1行前を見る\nMAX(price) OVER (PARTITION BY brand ORDER BY sale_date\n                 ROWS BETWEEN 1 PRECEDING AND 1 PRECEDING)")}
       </div>
     </div>`,
-  model: () => `<p class="takeaway" style="margin:0 0 14px"><b>SQLを書く前に、テーブルに列を足せば簡単に解けないか考える。</b>ただし代わりに、更新コスト・タイムラグ・変更コストの3つが増えます。本書はSQLで解くことに固執する状態をスーパーソルジャー病と呼びます。</p>
+  model: () => `${premise([["あるもの", "ギフトの受注を管理する2つの表。Ordersは注文1件で1行、OrderReceiptsは注文の中の商品ごとに1行（一対多）。"], ["したいこと", "受付日から配送予定日まで3日以上ある注文を見つけて、注文者に遅れる旨を連絡したい。"], ["論点", "SQLを工夫して解くか、テーブルの形を変えて解くか。"]], SIDE.model)}
+    <p class="takeaway" style="margin:0 0 14px"><b>SQLを書く前に、テーブルに列を足せば簡単に解けないか考える。</b>ただし代わりに、更新コスト・タイムラグ・変更コストの3つが増えます。本書はSQLで解くことに固執する状態をスーパーソルジャー病と呼びます。</p>
     <div class="grid">
       <div class="col">
         <div class="label">問題：配送予定日が受付日から3日以上あとの注文は？</div>
-        ${pre("-- SQLで解く：毎回、結合して日数を計算する\nSELECT O.order_id\n  FROM Orders O\n       INNER JOIN OrderReceipts ORC\n          ON O.order_id = ORC.order_id\n WHERE ORC.delivery_date - O.order_date >= 3\n GROUP BY O.order_id;\n\n-- テーブルを変えて解く：フラグを見るだけ\nSELECT order_id\n  FROM Orders\n WHERE del_late_flg = 1;")}
+        ${code("-- SQLで解く：毎回、結合して日数を計算する\nSELECT O.order_id\n  FROM Orders O\n       INNER JOIN OrderReceipts ORC\n          ON O.order_id = ORC.order_id\n WHERE ORC.delivery_date - O.order_date >= 3\n GROUP BY O.order_id;\n\n-- テーブルを変えて解く：フラグを見るだけ\nSELECT order_id\n  FROM Orders\n WHERE del_late_flg = 1;")}
         ${vt(["order_id", "order_date", "明細の配送予定日", "del_late_flg（追加）"], [
           [10000, "2011-08-22", "8/24、8/25、8/26", { v: 1, k: "acc" }],
           [10001, "2011-09-01", "9/4", { v: 1, k: "acc" }],
@@ -461,15 +482,15 @@ const INTRO_BODY = {
           ["❸", "", { v: "配送予定日 = 8/26に更新", k: "acc" }],
           ["❹", { v: "フラグ = 1に更新", k: "acc" }, ""],
         ])}
-        <p class="hint">❸から❹までの間、2つのテーブルの内容が食い違います。夜間バッチなら長くなり、同じトランザクションにすると性能に響きます。</p>
-        <p class="hint">テーブル設計は最初が肝心です。商品数を数える類題（9.7）も同じ構図で、商品数は登録時にわかるのでINSERTに含められます。</p>
       </div>
     </div>`,
 };
 
+
 const CH = {
   no: 9,
   store: "sql-jissen-ch9-drill-v1",
+  introEyebrow: "",
   h1: "更新とデータモデル<br>盲目のスーパーソルジャー",
   lede: () => `相関サブクエリ、行式、ウィンドウ関数、MERGE文による更新と、SQLに頼らずデータモデルで解く考え方を${QUESTIONS.length}問で確かめます。選択肢を選ぶと、そのSQLの実行計画と結果が表示されます。更新のSQLがテーブルを何回読んでいるか、本書とPostgreSQL・MySQLの実際の動きがどこで違うかに注目してください。`,
   points: [

@@ -327,7 +327,8 @@ function renderIntro(s) {
   const n = INTROS.indexOf(s) + 1;
   const back = state.back !== undefined && SLIDES[state.back]?.type === "q"
     ? `<button type="button" class="pill" id="back">Q${QUESTIONS.indexOf(state.back) + 1}に戻る</button>` : "";
-  return `<div class="head"><span class="qno">基礎 ${n} / ${INTROS.length}</span><span class="eyebrow">本を読む前に押さえておくこと</span>${back}</div>
+  return `<div class="head"><span class="qno">基礎 ${n} / ${INTROS.length}</span>${CH.introEyebrow === "" ? "" : `<span class="eyebrow">${CH.introEyebrow ?? "本を読む前に押さえておくこと"}</span>`}${back}</div>
+    ${typeof INTRO_KICKER === "function" ? INTRO_KICKER(s) : ""}
     <h2>${esc(s.title)}</h2>
     ${INTRO_BODY[s.id]()}`;
 }
