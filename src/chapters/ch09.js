@@ -74,18 +74,6 @@ const SLIDES = [
     takeaway: "<b>相関サブクエリのUPDATEは、更新する行の数だけサブクエリを実行する。</b>本書のOracleの計画では、内側の2つのサブクエリが主キーのインデックスを使っています。PostgreSQLも、行数が増えればインデックスを使う計画になる可能性があります。",
   },
   {
-    type: "q", sec: "9.1 更新は効率的に", title: "MySQLで同じUPDATE文を実行する", ref: "fill", table: ["omit"], db: "my",
-    prompt: "本書の相関サブクエリの解を、MySQL 8.0でそのまま実行した。どうなった？",
-    choices: [
-      { text: "PostgreSQLと同じように、6行を埋めた", ok: false, note: "実行計画タブのとおり、エラーになりました。" },
-      { text: "ERROR 1093（更新先のテーブルをFROM句で指定できない）になった", ok: true, note: "MySQLは、UPDATE文のサブクエリの中で、更新先と同じテーブルを読むことを許していません。本書によると、主要なDBMSでこの制限があるのはMySQLだけです。" },
-      { text: "相関サブクエリはSET句に書けないので、構文エラーになった", ok: false, note: "SET句の相関サブクエリ自体は、MySQLでも書けます。9.3の列から行への更新のように、別のテーブルを読むなら動きます。" },
-      { text: "1行ずつ処理されて、seq 3も直前に埋めた値で埋まった", ok: false, note: "エラーで1行も更新されません。そもそもUPDATE文は、更新前の状態を読んで計算します。" },
-    ],
-    show: [{ q: "fill_corr", tag: "相関サブクエリ" }],
-    takeaway: "本書は注で、<b>サブクエリを導出テーブルとして実体化すればERROR 1093を回避できる</b>と述べつつ、可読性が悪いので勧めていません。",
-  },
-  {
     type: "q", sec: "9.1 更新は効率的に", title: "IGNORE NULLS", ref: "fill", table: ["omit"],
     prompt: "本書は、FIRST_VALUE(val) IGNORE NULLSというウィンドウ関数で、相関サブクエリをなくす解も示す。PostgreSQL 16とMySQL 8.0で、このSELECTを実行するとどうなった？",
     choices: [
@@ -126,7 +114,7 @@ const SLIDES = [
     type: "q", sec: "9.1 更新は効率的に", title: "逆演算をMySQLで", ref: "fill", table: ["omit_filled"], tableNote: FILLED_NOTE, db: "my",
     prompt: "逆演算の2つの解を、MySQL 8.0で実行した。エラーにならず、正しく元の表に戻ったのはどれ？",
     choices: [
-      { q: "rev_corr", tag: "相関サブクエリ", ok: false, note: "埋め立ての解と同じく、ERROR 1093で止まります。サブクエリの中で、更新先のOmitFilledを読んでいるからです。" },
+      { q: "rev_corr", tag: "相関サブクエリ", ok: false, note: "ERROR 1093（更新先のテーブルをFROM句で指定できない）で止まります。MySQLは、UPDATE文のサブクエリの中で、更新先と同じテーブル（ここではOmitFilled）を読むことを許していません。" },
       { q: "rev_lag", tag: "共通表式のLAG", ok: true, note: "MySQLでも動き、結果はPostgreSQLと同じでした。ウィンドウ関数を含む共通表式は外側の文にマージできないので、MySQLは一時テーブルに実体化してから読みます。そのため、更新先のテーブルを直接読んだことにならない、と考えられます。本書も、この解はMySQLで動くと述べています。" },
       { text: "どちらもERROR 1093になる", ok: false, note: "共通表式のLAGを使った解は動きました。" },
     ],
