@@ -1,0 +1,3 @@
+SELECT *
+  FROM SomeTable
+ WHERE col_3 LIKE '0000015%'

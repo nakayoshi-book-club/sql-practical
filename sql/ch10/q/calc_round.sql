@@ -1,0 +1,3 @@
+SELECT *
+  FROM SomeTable
+ WHERE ROUND(col_1 * 1.1) > 109890

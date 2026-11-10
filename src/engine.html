@@ -204,7 +204,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 
 const RE = {
   pg: { full: /Seq Scan on /, idx: /Bitmap Index Scan on |Index (Only )?Scan using / },
-  my: { full: /(Table|Index) scan on (?!<)/, idx: /Index lookup on |Index range scan on |Single-row index lookup on / },
+  my: { full: /(Table|Index) scan on (?!<)/, idx: /[Ii]ndex lookup on |[Ii]ndex range scan on |Single-row index lookup on / },
 };
 function isError(t) { return /^ERROR/m.test(t); }
 function analyze(text, db) {
@@ -218,8 +218,10 @@ function analyze(text, db) {
     else if (/Buffers:|Batches:|Memory Usage|Heap Blocks|Rows Removed/.test(l)) cls = "dim";
     return `<span class="l ${cls}">${esc(l) || " "}</span>`;
   }).join("");
-  const m = db === "pg" && text.match(/Buffers: shared hit=(\d+)/);
-  return { html, full, idx, pages: m ? +m[1] : null, error: isError(text) };
+  // 読んだページは、キャッシュから読んだ hit とキャッシュの外から読んだ read の合計
+  const m = db === "pg" && text.match(/Buffers: shared(?: hit=(\d+))?(?: read=(\d+))?/);
+  const pages = m && (m[1] || m[2]) ? (+m[1] || 0) + (+m[2] || 0) : null;
+  return { html, full, idx, pages, error: isError(text) };
 }
 
 function renderTable(key) {

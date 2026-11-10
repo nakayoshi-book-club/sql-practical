@@ -1,0 +1,1 @@
+SET enable_indexscan = off; SET enable_bitmapscan = off;
